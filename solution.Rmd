@@ -1,0 +1,9 @@
+```{r}
+sonar = read.csv("sonar.all-data", header=FALSE)
+
+dim(sonar)
+str(sonar)
+summary(sonar)
+
+head(sonar)
+```
