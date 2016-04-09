@@ -1,6 +1,7 @@
 ```{r}
 library(RWeka)
 library(partykit)
+library(ROCR)
 ```
 
 **PART 1**
@@ -85,4 +86,58 @@ summary(tree_classifier_11)
 tree_classifier_12 <- J48(V61 ~ ., data = sonar, control = Weka_control(J = TRUE, R = TRUE, N = 10))
 tree_classifier_12
 summary(tree_classifier_12)
+```
+
+Calculating classification evaluation measures.
+
+```{r}
+findEvalMeasures <- function(predictions, labels) {
+  possible_values <- unique(labels)
+  size <- length(possible_values)
+  
+  if (size != 2) {
+    return(NULL)
+  }
+  
+  p_symbol <- possible_values[1]
+  n_symbol <- possible_values[2]
+  p <- length(which(labels == p_symbol))
+  n <- length(which(labels == n_symbol))
+  tp <- length(which(predictions == p_symbol & labels == p_symbol))
+  fp <- length(which(predictions == p_symbol & labels == n_symbol))
+  tn <- length(which(predictions == n_symbol & labels == n_symbol))
+  fn <- length(which(predictions == n_symbol & labels == p_symbol))
+  
+  acc <- (tp + tn) / (p + n)
+  err <- (fp + fn) / (p + n)
+  rec <- tp / p
+  prec <- tp / (tp + fp)
+  f <- (2 * prec * rec) / (prec + rec)
+  
+  eval_measures <- list(
+    size = size,
+    positive_symbol = p_symbol,
+    negative_symbol = n_symbol,
+    positive = p,
+    negative = n,
+    true_positive = tp,
+    false_positive = fp,
+    true_negative = tn,
+    false_negative = fn,
+    accuracy = acc,
+    error = err,
+    recall = rec,
+    precision = prec,
+    f_score = f
+  )
+  return(eval_measures)
+}
+```
+
+```{r}
+predictions <- as.vector(predict(c45_tree_classifier))
+labels <- as.vector(sonar$V61)
+
+eval_measures <- findEvalMeasures(predictions, labels)
+eval_measures
 ```

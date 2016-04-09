@@ -114,6 +114,13 @@ $(document).ready(function () {
 <pre class="r"><code>library(RWeka)
 library(partykit)</code></pre>
 <pre><code>## Loading required package: grid</code></pre>
+<pre class="r"><code>library(ROCR)</code></pre>
+<pre><code>## Loading required package: gplots</code></pre>
+<pre><code>## 
+## Attaching package: 'gplots'</code></pre>
+<pre><code>## The following object is masked from 'package:stats':
+## 
+##     lowess</code></pre>
 <p><strong>PART 1</strong></p>
 <p>Reading data.</p>
 <pre class="r"><code>sonar = read.csv(&quot;sonar.all-data&quot;, header=FALSE)
@@ -907,7 +914,8 @@ tree_classifier_9</code></pre>
 ##    a   b   &lt;-- classified as
 ##  110   1 |   a = M
 ##    3  94 |   b = R</code></pre>
-<pre class="r"><code>tree_classifier_10 &lt;- J48(V61 ~ ., data = sonar, control = Weka_control(J = TRUE))
+<pre class="r"><code># Best result
+tree_classifier_10 &lt;- J48(V61 ~ ., data = sonar, control = Weka_control(J = TRUE))
 tree_classifier_10</code></pre>
 <pre><code>## J48 pruned tree
 ## ------------------
@@ -1086,6 +1094,94 @@ tree_classifier_12</code></pre>
 ##    a   b   &lt;-- classified as
 ##  107   4 |   a = M
 ##   15  82 |   b = R</code></pre>
+<p>Calculating classification evaluation measures.</p>
+<pre class="r"><code>findEvalMeasures &lt;- function(predictions, labels) {
+  possible_values &lt;- unique(labels)
+  size &lt;- length(possible_values)
+  
+  if (size != 2) {
+    return(NULL)
+  }
+  
+  p_symbol &lt;- possible_values[1]
+  n_symbol &lt;- possible_values[2]
+  p &lt;- length(which(labels == p_symbol))
+  n &lt;- length(which(labels == n_symbol))
+  tp &lt;- length(which(predictions == p_symbol &amp; labels == p_symbol))
+  fp &lt;- length(which(predictions == p_symbol &amp; labels == n_symbol))
+  tn &lt;- length(which(predictions == n_symbol &amp; labels == n_symbol))
+  fn &lt;- length(which(predictions == n_symbol &amp; labels == p_symbol))
+  
+  acc &lt;- (tp + tn) / (p + n)
+  err &lt;- (fp + fn) / (p + n)
+  rec &lt;- tp / p
+  prec &lt;- tp / (tp + fp)
+  f &lt;- (2 * prec * rec) / (prec + rec)
+  
+  eval_measures &lt;- list(
+    size = size,
+    positive_symbol = p_symbol,
+    negative_symbol = n_symbol,
+    positive = p,
+    negative = n,
+    true_positive = tp,
+    false_positive = fp,
+    true_negative = tn,
+    false_negative = fn,
+    accuracy = acc,
+    error = err,
+    recall = rec,
+    precision = prec,
+    f_score = f
+  )
+  return(eval_measures)
+}</code></pre>
+<pre class="r"><code>predictions &lt;- as.vector(predict(c45_tree_classifier))
+labels &lt;- as.vector(sonar$V61)
+
+eval_measures &lt;- findEvalMeasures(predictions, labels)
+eval_measures</code></pre>
+<pre><code>## $size
+## [1] 2
+## 
+## $positive_symbol
+## [1] &quot;R&quot;
+## 
+## $negative_symbol
+## [1] &quot;M&quot;
+## 
+## $positive
+## [1] 97
+## 
+## $negative
+## [1] 111
+## 
+## $true_positive
+## [1] 94
+## 
+## $false_positive
+## [1] 1
+## 
+## $true_negative
+## [1] 110
+## 
+## $false_negative
+## [1] 3
+## 
+## $accuracy
+## [1] 0.9807692
+## 
+## $error
+## [1] 0.01923077
+## 
+## $recall
+## [1] 0.9690722
+## 
+## $precision
+## [1] 0.9894737
+## 
+## $f_score
+## [1] 0.9791667</code></pre>
 
 
 
