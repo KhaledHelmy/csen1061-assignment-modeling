@@ -1,4 +1,12 @@
 ```{r}
+library(RWeka)
+```
+
+**PART 1**
+
+Reading data.
+
+```{r}
 sonar = read.csv("sonar.all-data", header=FALSE)
 
 dim(sonar)
@@ -6,4 +14,16 @@ str(sonar)
 summary(sonar)
 
 head(sonar)
+```
+
+**PART 2**
+
+Using C4.5 decision tree.
+
+```{r}
+classifier <- J48(V61 ~ ., data = sonar)
+
+classifier
+summary(classifier)
+table(sonar$V61, predict(classifier))
 ```

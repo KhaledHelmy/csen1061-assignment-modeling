@@ -111,6 +111,9 @@ $(document).ready(function () {
 </div>
 
 
+<pre class="r"><code>library(RWeka)</code></pre>
+<p><strong>PART 1</strong></p>
+<p>Reading data.</p>
 <pre class="r"><code>sonar = read.csv(&quot;sonar.all-data&quot;, header=FALSE)
 
 dim(sonar)</code></pre>
@@ -341,6 +344,77 @@ dim(sonar)</code></pre>
 ## 4   R
 ## 5   R
 ## 6   R</code></pre>
+<p><strong>PART 2</strong></p>
+<p>Using C4.5 decision tree.</p>
+<pre class="r"><code>classifier &lt;- J48(V61 ~ ., data = sonar)
+
+classifier</code></pre>
+<pre><code>## J48 pruned tree
+## ------------------
+## 
+## V11 &lt;= 0.197
+## |   V1 &lt;= 0.0392
+## |   |   V4 &lt;= 0.0539
+## |   |   |   V28 &lt;= 0.9578
+## |   |   |   |   V27 &lt;= 0.2771
+## |   |   |   |   |   V2 &lt;= 0.0378: M (2.0)
+## |   |   |   |   |   V2 &gt; 0.0378: R (2.0)
+## |   |   |   |   V27 &gt; 0.2771: R (56.0)
+## |   |   |   V28 &gt; 0.9578
+## |   |   |   |   V2 &lt;= 0.0253: R (2.0)
+## |   |   |   |   V2 &gt; 0.0253: M (3.0)
+## |   |   V4 &gt; 0.0539
+## |   |   |   V21 &lt;= 0.7894
+## |   |   |   |   V18 &lt;= 0.2613: M (2.0)
+## |   |   |   |   V18 &gt; 0.2613: R (6.0)
+## |   |   |   V21 &gt; 0.7894: M (6.0)
+## |   V1 &gt; 0.0392: M (8.0/1.0)
+## V11 &gt; 0.197
+## |   V27 &lt;= 0.8145
+## |   |   V54 &lt;= 0.0205
+## |   |   |   V53 &lt;= 0.0166
+## |   |   |   |   V21 &lt;= 0.5959: R (14.0)
+## |   |   |   |   V21 &gt; 0.5959
+## |   |   |   |   |   V51 &lt;= 0.0153
+## |   |   |   |   |   |   V23 &lt;= 0.7867: R (13.0/1.0)
+## |   |   |   |   |   |   V23 &gt; 0.7867: M (6.0/1.0)
+## |   |   |   |   |   V51 &gt; 0.0153: M (7.0)
+## |   |   |   V53 &gt; 0.0166: M (12.0/1.0)
+## |   |   V54 &gt; 0.0205: M (13.0)
+## |   V27 &gt; 0.8145
+## |   |   V8 &lt;= 0.0697
+## |   |   |   V2 &lt;= 0.0222: M (3.0)
+## |   |   |   V2 &gt; 0.0222: R (2.0)
+## |   |   V8 &gt; 0.0697: M (51.0)
+## 
+## Number of Leaves  :  18
+## 
+## Size of the tree :   35</code></pre>
+<pre class="r"><code>summary(classifier)</code></pre>
+<pre><code>## 
+## === Summary ===
+## 
+## Correctly Classified Instances         204               98.0769 %
+## Incorrectly Classified Instances         4                1.9231 %
+## Kappa statistic                          0.9613
+## Mean absolute error                      0.0341
+## Root mean squared error                  0.1306
+## Relative absolute error                  6.854  %
+## Root relative squared error             26.1807 %
+## Coverage of cases (0.95 level)         100      %
+## Mean rel. region size (0.95 level)      59.375  %
+## Total Number of Instances              208     
+## 
+## === Confusion Matrix ===
+## 
+##    a   b   &lt;-- classified as
+##  110   1 |   a = M
+##    3  94 |   b = R</code></pre>
+<pre class="r"><code>table(sonar$V61, predict(classifier))</code></pre>
+<pre><code>##    
+##       M   R
+##   M 110   1
+##   R   3  94</code></pre>
 
 
 
