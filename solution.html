@@ -1094,23 +1094,51 @@ tree_classifier_12</code></pre>
 ##    a   b   &lt;-- classified as
 ##  107   4 |   a = M
 ##   15  82 |   b = R</code></pre>
-<p>Calculating classification evaluation measures.</p>
-<pre class="r"><code>findEvalMeasures &lt;- function(predictions, labels) {
+<p>Adding classification evaluation measures.</p>
+<pre class="r"><code>findDataStats &lt;- function(labels) {
   possible_values &lt;- unique(labels)
   size &lt;- length(possible_values)
-  
-  if (size != 2) {
-    return(NULL)
-  }
   
   p_symbol &lt;- possible_values[1]
   n_symbol &lt;- possible_values[2]
   p &lt;- length(which(labels == p_symbol))
   n &lt;- length(which(labels == n_symbol))
+  
+  data_stats &lt;- list(
+    size = size,
+    p_symbol = p_symbol,
+    n_symbol = n_symbol,
+    p = p,
+    n = n
+  )
+}
+
+findPredictionStats &lt;- function(data_stats, labels, predictions) {
+  p_symbol &lt;- data_stats$p_symbol
+  n_symbol &lt;- data_stats$n_symbol
+  
   tp &lt;- length(which(predictions == p_symbol &amp; labels == p_symbol))
   fp &lt;- length(which(predictions == p_symbol &amp; labels == n_symbol))
   tn &lt;- length(which(predictions == n_symbol &amp; labels == n_symbol))
   fn &lt;- length(which(predictions == n_symbol &amp; labels == p_symbol))
+  
+  prediction_stats &lt;- list(
+    tp = tp,
+    fp = fp,
+    tn = tn,
+    fn = fn
+  )
+  return(prediction_stats)
+}
+
+findEvalMeasures &lt;- function(data_stats, prediction_stats) {
+  p &lt;- data_stats$p
+  n &lt;- data_stats$n
+  
+  tp &lt;- prediction_stats$tp
+  tn &lt;- prediction_stats$tn
+  fp &lt;- prediction_stats$fp
+  fn &lt;- prediction_stats$fn
   
   acc &lt;- (tp + tn) / (p + n)
   err &lt;- (fp + fn) / (p + n)
@@ -1119,15 +1147,6 @@ tree_classifier_12</code></pre>
   f &lt;- (2 * prec * rec) / (prec + rec)
   
   eval_measures &lt;- list(
-    size = size,
-    positive_symbol = p_symbol,
-    negative_symbol = n_symbol,
-    positive = p,
-    negative = n,
-    true_positive = tp,
-    false_positive = fp,
-    true_negative = tn,
-    false_negative = fn,
     accuracy = acc,
     error = err,
     recall = rec,
@@ -1136,39 +1155,15 @@ tree_classifier_12</code></pre>
   )
   return(eval_measures)
 }</code></pre>
+<p>Calculating evaluation measures to C4.5 decision tree.</p>
 <pre class="r"><code>predictions &lt;- as.vector(predict(c45_tree_classifier))
 labels &lt;- as.vector(sonar$V61)
 
-eval_measures &lt;- findEvalMeasures(predictions, labels)
+data_stats &lt;- findDataStats(labels)
+prediction_stats &lt;- findPredictionStats(data_stats, labels, predictions)
+eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
 eval_measures</code></pre>
-<pre><code>## $size
-## [1] 2
-## 
-## $positive_symbol
-## [1] &quot;R&quot;
-## 
-## $negative_symbol
-## [1] &quot;M&quot;
-## 
-## $positive
-## [1] 97
-## 
-## $negative
-## [1] 111
-## 
-## $true_positive
-## [1] 94
-## 
-## $false_positive
-## [1] 1
-## 
-## $true_negative
-## [1] 110
-## 
-## $false_negative
-## [1] 3
-## 
-## $accuracy
+<pre><code>## $accuracy
 ## [1] 0.9807692
 ## 
 ## $error
@@ -1182,6 +1177,65 @@ eval_measures</code></pre>
 ## 
 ## $f_score
 ## [1] 0.9791667</code></pre>
+<p>Using 10-fold cross validation for C4.5 decision tree.</p>
+<pre class="r"><code>c45_tree_classifier_fold &lt;- evaluate_Weka_classifier(c45_tree_classifier, numFolds = 10)
+
+c45_tree_classifier_fold</code></pre>
+<pre><code>## === 10 Fold Cross Validation ===
+## 
+## === Summary ===
+## 
+## Correctly Classified Instances         156               75      %
+## Incorrectly Classified Instances        52               25      %
+## Kappa statistic                          0.4977
+## Mean absolute error                      0.2595
+## Root mean squared error                  0.4935
+## Relative absolute error                 52.1273 %
+## Root relative squared error             98.9069 %
+## Coverage of cases (0.95 level)          77.8846 %
+## Mean rel. region size (0.95 level)      55.7692 %
+## Total Number of Instances              208     
+## 
+## === Confusion Matrix ===
+## 
+##   a  b   &lt;-- classified as
+##  85 26 |  a = M
+##  26 71 |  b = R</code></pre>
+<pre class="r"><code>summary(c45_tree_classifier_fold)</code></pre>
+<pre><code>##                 Length Class  Mode     
+## string          1      -none- character
+## details         8      -none- numeric  
+## confusionMatrix 4      -none- numeric</code></pre>
+<pre class="r"><code>c45_tree_classifier_fold$details</code></pre>
+<pre><code>##               pctCorrect             pctIncorrect          pctUnclassified 
+##               75.0000000               25.0000000                0.0000000 
+##                    kappa        meanAbsoluteError     rootMeanSquaredError 
+##                0.4977245                0.2594980                0.4934737 
+##    relativeAbsoluteError rootRelativeSquaredError 
+##               52.1273261               98.9068643</code></pre>
+<pre class="r"><code>data_stats &lt;- findDataStats(labels)
+prediction_stats &lt;- list(
+  tp = c45_tree_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;R&quot;],
+  fp = c45_tree_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;R&quot;],
+  tn = c45_tree_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;M&quot;],
+  fn = c45_tree_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;M&quot;]
+)
+eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
+eval_measures</code></pre>
+<pre><code>## $accuracy
+## [1] 0.75
+## 
+## $error
+## [1] 0.25
+## 
+## $recall
+## [1] 0.7319588
+## 
+## $precision
+## [1] 0.7319588
+## 
+## $f_score
+## [1] 0.7319588</code></pre>
 
 
 

@@ -88,25 +88,53 @@ tree_classifier_12
 summary(tree_classifier_12)
 ```
 
-Calculating classification evaluation measures.
+Adding classification evaluation measures.
 
 ```{r}
-findEvalMeasures <- function(predictions, labels) {
+findDataStats <- function(labels) {
   possible_values <- unique(labels)
   size <- length(possible_values)
-  
-  if (size != 2) {
-    return(NULL)
-  }
   
   p_symbol <- possible_values[1]
   n_symbol <- possible_values[2]
   p <- length(which(labels == p_symbol))
   n <- length(which(labels == n_symbol))
+  
+  data_stats <- list(
+    size = size,
+    p_symbol = p_symbol,
+    n_symbol = n_symbol,
+    p = p,
+    n = n
+  )
+}
+
+findPredictionStats <- function(data_stats, labels, predictions) {
+  p_symbol <- data_stats$p_symbol
+  n_symbol <- data_stats$n_symbol
+  
   tp <- length(which(predictions == p_symbol & labels == p_symbol))
   fp <- length(which(predictions == p_symbol & labels == n_symbol))
   tn <- length(which(predictions == n_symbol & labels == n_symbol))
   fn <- length(which(predictions == n_symbol & labels == p_symbol))
+  
+  prediction_stats <- list(
+    tp = tp,
+    fp = fp,
+    tn = tn,
+    fn = fn
+  )
+  return(prediction_stats)
+}
+
+findEvalMeasures <- function(data_stats, prediction_stats) {
+  p <- data_stats$p
+  n <- data_stats$n
+  
+  tp <- prediction_stats$tp
+  tn <- prediction_stats$tn
+  fp <- prediction_stats$fp
+  fn <- prediction_stats$fn
   
   acc <- (tp + tn) / (p + n)
   err <- (fp + fn) / (p + n)
@@ -115,15 +143,6 @@ findEvalMeasures <- function(predictions, labels) {
   f <- (2 * prec * rec) / (prec + rec)
   
   eval_measures <- list(
-    size = size,
-    positive_symbol = p_symbol,
-    negative_symbol = n_symbol,
-    positive = p,
-    negative = n,
-    true_positive = tp,
-    false_positive = fp,
-    true_negative = tn,
-    false_negative = fn,
     accuracy = acc,
     error = err,
     recall = rec,
@@ -134,10 +153,39 @@ findEvalMeasures <- function(predictions, labels) {
 }
 ```
 
+Calculating evaluation measures to C4.5 decision tree.
+
 ```{r}
 predictions <- as.vector(predict(c45_tree_classifier))
 labels <- as.vector(sonar$V61)
 
-eval_measures <- findEvalMeasures(predictions, labels)
+data_stats <- findDataStats(labels)
+prediction_stats <- findPredictionStats(data_stats, labels, predictions)
+eval_measures <- findEvalMeasures(data_stats, prediction_stats)
 eval_measures
 ```
+
+Using 10-fold cross validation for C4.5 decision tree.
+
+```{r}
+c45_tree_classifier_fold <- evaluate_Weka_classifier(c45_tree_classifier, numFolds = 10)
+
+c45_tree_classifier_fold
+summary(c45_tree_classifier_fold)
+
+c45_tree_classifier_fold$details
+
+data_stats <- findDataStats(labels)
+prediction_stats <- list(
+  tp = c45_tree_classifier_fold$confusionMatrix["R", "R"],
+  fp = c45_tree_classifier_fold$confusionMatrix["M", "R"],
+  tn = c45_tree_classifier_fold$confusionMatrix["M", "M"],
+  fn = c45_tree_classifier_fold$confusionMatrix["R", "M"]
+)
+eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+eval_measures
+```
+
+It is evident that using a 10-fold validation produced worse results than using the normal decision tree but this is due to the fact that the normal decision is training and testing on the same data which results in over-fitting.
+
+**PART 3**
