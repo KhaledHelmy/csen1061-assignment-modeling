@@ -1,5 +1,6 @@
 ```{r}
 library(RWeka)
+library(partykit)
 ```
 
 **PART 1**
@@ -21,9 +22,67 @@ head(sonar)
 Using C4.5 decision tree.
 
 ```{r}
-classifier <- J48(V61 ~ ., data = sonar)
+c45_tree_classifier <- J48(V61 ~ ., data = sonar)
 
-classifier
-summary(classifier)
-table(sonar$V61, predict(classifier))
+c45_tree_classifier
+summary(c45_tree_classifier)
+table(sonar$V61, predict(c45_tree_classifier))
+plot(c45_tree_classifier,
+     gp = gpar(fontsize = 6),
+     inner_panel=node_inner,
+     ip_args=list(abbreviate = TRUE, id = FALSE)
+)
+```
+
+Experimenting with different parameters.
+
+```{r}
+tree_classifier_1 <- J48(V61 ~ ., data = sonar, control = Weka_control(U = TRUE))
+tree_classifier_1
+summary(tree_classifier_1)
+
+tree_classifier_2 <- J48(V61 ~ ., data = sonar, control = Weka_control(R = TRUE))
+tree_classifier_2
+summary(tree_classifier_2)
+
+tree_classifier_3 <- J48(V61 ~ ., data = sonar, control = Weka_control(C = 0.1))
+tree_classifier_3
+summary(tree_classifier_3)
+
+tree_classifier_4 <- J48(V61 ~ ., data = sonar, control = Weka_control(C = 0.5))
+tree_classifier_4
+summary(tree_classifier_4)
+
+tree_classifier_5 <- J48(V61 ~ ., data = sonar, control = Weka_control(O = TRUE))
+tree_classifier_5
+summary(tree_classifier_5)
+
+tree_classifier_6 <- J48(V61 ~ ., data = sonar, control = Weka_control(R = TRUE, N = 5))
+tree_classifier_6
+summary(tree_classifier_6)
+
+tree_classifier_7 <- J48(V61 ~ ., data = sonar, control = Weka_control(R = TRUE, N = 2))
+tree_classifier_7
+summary(tree_classifier_7)
+
+tree_classifier_8 <- J48(V61 ~ ., data = sonar, control = Weka_control(S = TRUE))
+tree_classifier_8
+summary(tree_classifier_8)
+
+tree_classifier_9 <- J48(V61 ~ ., data = sonar, control = Weka_control(A = TRUE))
+tree_classifier_9
+summary(tree_classifier_9)
+
+# Best result
+tree_classifier_10 <- J48(V61 ~ ., data = sonar, control = Weka_control(J = TRUE))
+tree_classifier_10
+summary(tree_classifier_10)
+
+tree_classifier_11 <- J48(V61 ~ ., data = sonar, control = Weka_control(doNotMakeSplitPointActualValue = TRUE))
+tree_classifier_11
+summary(tree_classifier_11)
+
+tree_classifier_12 <- J48(V61 ~ ., data = sonar, control = Weka_control(J = TRUE, R = TRUE, N = 10))
+tree_classifier_12
+summary(tree_classifier_12)
 ```
