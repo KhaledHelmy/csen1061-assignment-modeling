@@ -1,7 +1,10 @@
 ```{r}
 library(RWeka)
+library(RWekajars)
+library(rJava)
 library(partykit)
-library(ROCR)
+library(e1071)
+library(formattable)
 ```
 
 **PART 1**
@@ -182,10 +185,155 @@ prediction_stats <- list(
   tn = c45_tree_classifier_fold$confusionMatrix["M", "M"],
   fn = c45_tree_classifier_fold$confusionMatrix["R", "M"]
 )
-eval_measures <- findEvalMeasures(data_stats, prediction_stats)
-eval_measures
+c45_tree_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+c45_tree_eval_measures
 ```
 
 It is evident that using a 10-fold validation produced worse results than using the normal decision tree but this is due to the fact that the normal decision is training and testing on the same data which results in over-fitting.
 
 **PART 3**
+
+Using other classification algorithms with 10-fold cross validation.
+
+1. Random Forest
+
+```{r}
+RandomForest <- make_Weka_classifier("weka/classifiers/trees/RandomForest")
+random_forest_classifier <- RandomForest(V61 ~ ., data = sonar)
+random_forest_classifier_fold <- evaluate_Weka_classifier(random_forest_classifier, numFolds = 10)
+
+random_forest_classifier_fold
+random_forest_classifier_fold$details
+
+data_stats <- findDataStats(labels)
+prediction_stats <- list(
+  tp = random_forest_classifier_fold$confusionMatrix["R", "R"],
+  fp = random_forest_classifier_fold$confusionMatrix["M", "R"],
+  tn = random_forest_classifier_fold$confusionMatrix["M", "M"],
+  fn = random_forest_classifier_fold$confusionMatrix["R", "M"]
+)
+rf_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+rf_eval_measures
+```
+
+2. Support Vector Machines
+
+```{r}
+svm_classifier <- svm(V61 ~ ., data = sonar, cross = 10)
+svm_classifier
+summary(svm_classifier)
+
+svm_predict <- fitted(svm_classifier)
+table(sonar$V61, svm_predict)
+
+predictions <- as.vector(svm_predict)
+labels <- as.vector(sonar$V61)
+
+data_stats <- findDataStats(labels)
+prediction_stats <- findPredictionStats(data_stats, labels, predictions)
+svm_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+svm_eval_measures
+```
+
+3. Naive Bayes
+
+```{r}
+NaiveBayes <- make_Weka_classifier("weka/classifiers/bayes/NaiveBayes")
+naive_bayes_classifier <- NaiveBayes(V61 ~ ., data = sonar)
+naive_bayes_classifier_fold <- evaluate_Weka_classifier(naive_bayes_classifier, numFolds = 10)
+
+naive_bayes_classifier_fold
+naive_bayes_classifier_fold$details
+
+data_stats <- findDataStats(labels)
+prediction_stats <- list(
+  tp = naive_bayes_classifier_fold$confusionMatrix["R", "R"],
+  fp = naive_bayes_classifier_fold$confusionMatrix["M", "R"],
+  tn = naive_bayes_classifier_fold$confusionMatrix["M", "M"],
+  fn = naive_bayes_classifier_fold$confusionMatrix["R", "M"]
+)
+nb_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+nb_eval_measures
+```
+
+4. Neural Networks
+
+```{r}
+NeuralNetworks <- make_Weka_classifier("weka/classifiers/functions/MultilayerPerceptron")
+neural_networks_classifier <- NeuralNetworks(V61 ~ ., data = sonar)
+neural_networks_classifier_fold <- evaluate_Weka_classifier(neural_networks_classifier, numFolds = 10)
+
+neural_networks_classifier_fold
+neural_networks_classifier_fold$details
+
+data_stats <- findDataStats(labels)
+prediction_stats <- list(
+  tp = neural_networks_classifier_fold$confusionMatrix["R", "R"],
+  fp = neural_networks_classifier_fold$confusionMatrix["M", "R"],
+  tn = neural_networks_classifier_fold$confusionMatrix["M", "M"],
+  fn = neural_networks_classifier_fold$confusionMatrix["R", "M"]
+)
+nn_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+nn_eval_measures
+```
+
+5. Ensemble Learning
+
+* Bagging
+
+```{r}
+Bagging <- make_Weka_classifier("weka/classifiers/meta/Bagging")
+bagging_classifier <- Bagging(V61 ~ ., data = sonar, control = Weka_control(W = J48))
+bagging_classifier_fold <- evaluate_Weka_classifier(bagging_classifier, numFolds = 10)
+
+bagging_classifier_fold
+bagging_classifier_fold$details
+
+data_stats <- findDataStats(labels)
+prediction_stats <- list(
+  tp = bagging_classifier_fold$confusionMatrix["R", "R"],
+  fp = bagging_classifier_fold$confusionMatrix["M", "R"],
+  tn = bagging_classifier_fold$confusionMatrix["M", "M"],
+  fn = bagging_classifier_fold$confusionMatrix["R", "M"]
+)
+bagging_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+bagging_eval_measures
+```
+
+* Boosting
+
+```{r}
+Boosting <- make_Weka_classifier("weka/classifiers/meta/AdaBoostM1")
+boosting_classifier <- Boosting(V61 ~ ., data = sonar, control = Weka_control(W = J48))
+boosting_classifier_fold <- evaluate_Weka_classifier(boosting_classifier, numFolds = 10)
+
+boosting_classifier_fold
+boosting_classifier_fold$details
+
+data_stats <- findDataStats(labels)
+prediction_stats <- list(
+  tp = boosting_classifier_fold$confusionMatrix["R", "R"],
+  fp = boosting_classifier_fold$confusionMatrix["M", "R"],
+  tn = boosting_classifier_fold$confusionMatrix["M", "M"],
+  fn = boosting_classifier_fold$confusionMatrix["R", "M"]
+)
+boosting_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+boosting_eval_measures
+```
+
+Combining all evaluation measures into 1 table.
+
+```{r}
+all_eval_measures <- data.frame(
+  Measure=c("accuracy", "error", "recall", "precision", "f_score"),
+  C4.5_Decision_Tree=c(c45_tree_eval_measures$accuracy, c45_tree_eval_measures$error, c45_tree_eval_measures$recall, c45_tree_eval_measures$precision, c45_tree_eval_measures$f_score),
+  Random_Forest=c(rf_eval_measures$accuracy, rf_eval_measures$error, rf_eval_measures$recall, rf_eval_measures$precision, rf_eval_measures$f_score),
+  SVM=c(svm_eval_measures$accuracy, svm_eval_measures$error, svm_eval_measures$recall, svm_eval_measures$precision, svm_eval_measures$f_score),
+  Naive_Bayes=c(nb_eval_measures$accuracy, nb_eval_measures$error, nb_eval_measures$recall, nb_eval_measures$precision, nb_eval_measures$f_score),
+  Neural_Networks=c(nn_eval_measures$accuracy, nn_eval_measures$error, nn_eval_measures$recall, nn_eval_measures$precision, nn_eval_measures$f_score),
+  Bagging=c(bagging_eval_measures$accuracy, bagging_eval_measures$error, bagging_eval_measures$recall, bagging_eval_measures$precision, bagging_eval_measures$f_score),
+  Boosting=c(boosting_eval_measures$accuracy, boosting_eval_measures$error, boosting_eval_measures$recall, boosting_eval_measures$precision, boosting_eval_measures$f_score)
+)
+
+formattable(all_eval_measures, list())
+```

@@ -112,15 +112,12 @@ $(document).ready(function () {
 
 
 <pre class="r"><code>library(RWeka)
+library(RWekajars)
+library(rJava)
 library(partykit)</code></pre>
 <pre><code>## Loading required package: grid</code></pre>
-<pre class="r"><code>library(ROCR)</code></pre>
-<pre><code>## Loading required package: gplots</code></pre>
-<pre><code>## 
-## Attaching package: 'gplots'</code></pre>
-<pre><code>## The following object is masked from 'package:stats':
-## 
-##     lowess</code></pre>
+<pre class="r"><code>library(e1071)
+library(formattable)</code></pre>
 <p><strong>PART 1</strong></p>
 <p>Reading data.</p>
 <pre class="r"><code>sonar = read.csv(&quot;sonar.all-data&quot;, header=FALSE)
@@ -1185,22 +1182,22 @@ c45_tree_classifier_fold</code></pre>
 ## 
 ## === Summary ===
 ## 
-## Correctly Classified Instances         156               75      %
-## Incorrectly Classified Instances        52               25      %
-## Kappa statistic                          0.4977
-## Mean absolute error                      0.2595
-## Root mean squared error                  0.4935
-## Relative absolute error                 52.1273 %
-## Root relative squared error             98.9069 %
-## Coverage of cases (0.95 level)          77.8846 %
-## Mean rel. region size (0.95 level)      55.7692 %
+## Correctly Classified Instances         157               75.4808 %
+## Incorrectly Classified Instances        51               24.5192 %
+## Kappa statistic                          0.5064
+## Mean absolute error                      0.2479
+## Root mean squared error                  0.4753
+## Relative absolute error                 49.7883 %
+## Root relative squared error             95.2623 %
+## Coverage of cases (0.95 level)          83.6538 %
+## Mean rel. region size (0.95 level)      58.8942 %
 ## Total Number of Instances              208     
 ## 
 ## === Confusion Matrix ===
 ## 
 ##   a  b   &lt;-- classified as
-##  85 26 |  a = M
-##  26 71 |  b = R</code></pre>
+##  87 24 |  a = M
+##  27 70 |  b = R</code></pre>
 <pre class="r"><code>summary(c45_tree_classifier_fold)</code></pre>
 <pre><code>##                 Length Class  Mode     
 ## string          1      -none- character
@@ -1208,11 +1205,11 @@ c45_tree_classifier_fold</code></pre>
 ## confusionMatrix 4      -none- numeric</code></pre>
 <pre class="r"><code>c45_tree_classifier_fold$details</code></pre>
 <pre><code>##               pctCorrect             pctIncorrect          pctUnclassified 
-##               75.0000000               25.0000000                0.0000000 
+##               75.4807692               24.5192308                0.0000000 
 ##                    kappa        meanAbsoluteError     rootMeanSquaredError 
-##                0.4977245                0.2594980                0.4934737 
+##                0.5064210                0.2478539                0.4752899 
 ##    relativeAbsoluteError rootRelativeSquaredError 
-##               52.1273261               98.9068643</code></pre>
+##               49.7883033               95.2622891</code></pre>
 <pre class="r"><code>data_stats &lt;- findDataStats(labels)
 prediction_stats &lt;- list(
   tp = c45_tree_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;R&quot;],
@@ -1220,22 +1217,468 @@ prediction_stats &lt;- list(
   tn = c45_tree_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;M&quot;],
   fn = c45_tree_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;M&quot;]
 )
-eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
-eval_measures</code></pre>
+c45_tree_eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
+c45_tree_eval_measures</code></pre>
 <pre><code>## $accuracy
-## [1] 0.75
+## [1] 0.7548077
 ## 
 ## $error
-## [1] 0.25
+## [1] 0.2451923
 ## 
 ## $recall
-## [1] 0.7319588
+## [1] 0.7216495
 ## 
 ## $precision
-## [1] 0.7319588
+## [1] 0.7446809
 ## 
 ## $f_score
-## [1] 0.7319588</code></pre>
+## [1] 0.7329843</code></pre>
+<p>It is evident that using a 10-fold validation produced worse results than using the normal decision tree but this is due to the fact that the normal decision is training and testing on the same data which results in over-fitting.</p>
+<p><strong>PART 3</strong></p>
+<p>Using other classification algorithms with 10-fold cross validation.</p>
+<ol style="list-style-type: decimal">
+<li>Random Forest</li>
+</ol>
+<pre class="r"><code>RandomForest &lt;- make_Weka_classifier(&quot;weka/classifiers/trees/RandomForest&quot;)
+random_forest_classifier &lt;- RandomForest(V61 ~ ., data = sonar)
+random_forest_classifier_fold &lt;- evaluate_Weka_classifier(random_forest_classifier, numFolds = 10)
+
+random_forest_classifier_fold</code></pre>
+<pre><code>## === 10 Fold Cross Validation ===
+## 
+## === Summary ===
+## 
+## Correctly Classified Instances         170               81.7308 %
+## Incorrectly Classified Instances        38               18.2692 %
+## Kappa statistic                          0.6291
+## Mean absolute error                      0.3133
+## Root mean squared error                  0.3591
+## Relative absolute error                 62.9384 %
+## Root relative squared error             71.9775 %
+## Coverage of cases (0.95 level)         100      %
+## Mean rel. region size (0.95 level)      97.8365 %
+## Total Number of Instances              208     
+## 
+## === Confusion Matrix ===
+## 
+##    a   b   &lt;-- classified as
+##  100  11 |   a = M
+##   27  70 |   b = R</code></pre>
+<pre class="r"><code>random_forest_classifier_fold$details</code></pre>
+<pre><code>##               pctCorrect             pctIncorrect          pctUnclassified 
+##               81.7307692               18.2692308                0.0000000 
+##                    kappa        meanAbsoluteError     rootMeanSquaredError 
+##                0.6290943                0.3133173                0.3591155 
+##    relativeAbsoluteError rootRelativeSquaredError 
+##               62.9384287               71.9774752</code></pre>
+<pre class="r"><code>data_stats &lt;- findDataStats(labels)
+prediction_stats &lt;- list(
+  tp = random_forest_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;R&quot;],
+  fp = random_forest_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;R&quot;],
+  tn = random_forest_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;M&quot;],
+  fn = random_forest_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;M&quot;]
+)
+rf_eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
+rf_eval_measures</code></pre>
+<pre><code>## $accuracy
+## [1] 0.8173077
+## 
+## $error
+## [1] 0.1826923
+## 
+## $recall
+## [1] 0.7216495
+## 
+## $precision
+## [1] 0.8641975
+## 
+## $f_score
+## [1] 0.7865169</code></pre>
+<ol start="2" style="list-style-type: decimal">
+<li>Support Vector Machines</li>
+</ol>
+<pre class="r"><code>svm_classifier &lt;- svm(V61 ~ ., data = sonar, cross = 10)
+svm_classifier</code></pre>
+<pre><code>## 
+## Call:
+## svm(formula = V61 ~ ., data = sonar, cross = 10)
+## 
+## 
+## Parameters:
+##    SVM-Type:  C-classification 
+##  SVM-Kernel:  radial 
+##        cost:  1 
+##       gamma:  0.01666667 
+## 
+## Number of Support Vectors:  157</code></pre>
+<pre class="r"><code>summary(svm_classifier)</code></pre>
+<pre><code>## 
+## Call:
+## svm(formula = V61 ~ ., data = sonar, cross = 10)
+## 
+## 
+## Parameters:
+##    SVM-Type:  C-classification 
+##  SVM-Kernel:  radial 
+##        cost:  1 
+##       gamma:  0.01666667 
+## 
+## Number of Support Vectors:  157
+## 
+##  ( 74 83 )
+## 
+## 
+## Number of Classes:  2 
+## 
+## Levels: 
+##  M R
+## 
+## 10-fold cross-validation on training data:
+## 
+## Total Accuracy: 85.09615 
+## Single Accuracies:
+##  85 80.95238 76.19048 95.2381 85.71429 80 80.95238 90.47619 85.71429 90.47619</code></pre>
+<pre class="r"><code>svm_predict &lt;- fitted(svm_classifier)
+table(sonar$V61, svm_predict)</code></pre>
+<pre><code>##    svm_predict
+##       M   R
+##   M 107   4
+##   R   0  97</code></pre>
+<pre class="r"><code>predictions &lt;- as.vector(svm_predict)
+labels &lt;- as.vector(sonar$V61)
+
+data_stats &lt;- findDataStats(labels)
+prediction_stats &lt;- findPredictionStats(data_stats, labels, predictions)
+svm_eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
+svm_eval_measures</code></pre>
+<pre><code>## $accuracy
+## [1] 0.9807692
+## 
+## $error
+## [1] 0.01923077
+## 
+## $recall
+## [1] 1
+## 
+## $precision
+## [1] 0.960396
+## 
+## $f_score
+## [1] 0.979798</code></pre>
+<ol start="3" style="list-style-type: decimal">
+<li>Naive Bayes</li>
+</ol>
+<pre class="r"><code>NaiveBayes &lt;- make_Weka_classifier(&quot;weka/classifiers/bayes/NaiveBayes&quot;)
+naive_bayes_classifier &lt;- NaiveBayes(V61 ~ ., data = sonar)
+naive_bayes_classifier_fold &lt;- evaluate_Weka_classifier(naive_bayes_classifier, numFolds = 10)
+
+naive_bayes_classifier_fold</code></pre>
+<pre><code>## === 10 Fold Cross Validation ===
+## 
+## === Summary ===
+## 
+## Correctly Classified Instances         144               69.2308 %
+## Incorrectly Classified Instances        64               30.7692 %
+## Kappa statistic                          0.3929
+## Mean absolute error                      0.3127
+## Root mean squared error                  0.5303
+## Relative absolute error                 62.8175 %
+## Root relative squared error            106.2951 %
+## Coverage of cases (0.95 level)          78.3654 %
+## Mean rel. region size (0.95 level)      58.8942 %
+## Total Number of Instances              208     
+## 
+## === Confusion Matrix ===
+## 
+##   a  b   &lt;-- classified as
+##  65 46 |  a = M
+##  18 79 |  b = R</code></pre>
+<pre class="r"><code>naive_bayes_classifier_fold$details</code></pre>
+<pre><code>##               pctCorrect             pctIncorrect          pctUnclassified 
+##               69.2307692               30.7692308                0.0000000 
+##                    kappa        meanAbsoluteError     rootMeanSquaredError 
+##                0.3928669                0.3127155                0.5303354 
+##    relativeAbsoluteError rootRelativeSquaredError 
+##               62.8175474              106.2950623</code></pre>
+<pre class="r"><code>data_stats &lt;- findDataStats(labels)
+prediction_stats &lt;- list(
+  tp = naive_bayes_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;R&quot;],
+  fp = naive_bayes_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;R&quot;],
+  tn = naive_bayes_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;M&quot;],
+  fn = naive_bayes_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;M&quot;]
+)
+nb_eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
+nb_eval_measures</code></pre>
+<pre><code>## $accuracy
+## [1] 0.6923077
+## 
+## $error
+## [1] 0.3076923
+## 
+## $recall
+## [1] 0.814433
+## 
+## $precision
+## [1] 0.632
+## 
+## $f_score
+## [1] 0.7117117</code></pre>
+<ol start="4" style="list-style-type: decimal">
+<li>Neural Networks</li>
+</ol>
+<pre class="r"><code>NeuralNetworks &lt;- make_Weka_classifier(&quot;weka/classifiers/functions/MultilayerPerceptron&quot;)
+neural_networks_classifier &lt;- NeuralNetworks(V61 ~ ., data = sonar)
+neural_networks_classifier_fold &lt;- evaluate_Weka_classifier(neural_networks_classifier, numFolds = 10)
+
+neural_networks_classifier_fold</code></pre>
+<pre><code>## === 10 Fold Cross Validation ===
+## 
+## === Summary ===
+## 
+## Correctly Classified Instances         175               84.1346 %
+## Incorrectly Classified Instances        33               15.8654 %
+## Kappa statistic                          0.6798
+## Mean absolute error                      0.1628
+## Root mean squared error                  0.3735
+## Relative absolute error                 32.7077 %
+## Root relative squared error             74.8627 %
+## Coverage of cases (0.95 level)          89.4231 %
+## Mean rel. region size (0.95 level)      57.6923 %
+## Total Number of Instances              208     
+## 
+## === Confusion Matrix ===
+## 
+##   a  b   &lt;-- classified as
+##  98 13 |  a = M
+##  20 77 |  b = R</code></pre>
+<pre class="r"><code>neural_networks_classifier_fold$details</code></pre>
+<pre><code>##               pctCorrect             pctIncorrect          pctUnclassified 
+##               84.1346154               15.8653846                0.0000000 
+##                    kappa        meanAbsoluteError     rootMeanSquaredError 
+##                0.6797910                0.1628240                0.3735108 
+##    relativeAbsoluteError rootRelativeSquaredError 
+##               32.7076882               74.8627138</code></pre>
+<pre class="r"><code>data_stats &lt;- findDataStats(labels)
+prediction_stats &lt;- list(
+  tp = neural_networks_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;R&quot;],
+  fp = neural_networks_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;R&quot;],
+  tn = neural_networks_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;M&quot;],
+  fn = neural_networks_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;M&quot;]
+)
+nn_eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
+nn_eval_measures</code></pre>
+<pre><code>## $accuracy
+## [1] 0.8413462
+## 
+## $error
+## [1] 0.1586538
+## 
+## $recall
+## [1] 0.7938144
+## 
+## $precision
+## [1] 0.8555556
+## 
+## $f_score
+## [1] 0.8235294</code></pre>
+<ol start="5" style="list-style-type: decimal">
+<li>Ensemble Learning</li>
+</ol>
+<ul>
+<li>Bagging</li>
+</ul>
+<pre class="r"><code>Bagging &lt;- make_Weka_classifier(&quot;weka/classifiers/meta/Bagging&quot;)
+bagging_classifier &lt;- Bagging(V61 ~ ., data = sonar, control = Weka_control(W = J48))
+bagging_classifier_fold &lt;- evaluate_Weka_classifier(bagging_classifier, numFolds = 10)
+
+bagging_classifier_fold</code></pre>
+<pre><code>## === 10 Fold Cross Validation ===
+## 
+## === Summary ===
+## 
+## Correctly Classified Instances         160               76.9231 %
+## Incorrectly Classified Instances        48               23.0769 %
+## Kappa statistic                          0.5358
+## Mean absolute error                      0.3106
+## Root mean squared error                  0.3963
+## Relative absolute error                 62.3862 %
+## Root relative squared error             79.4208 %
+## Coverage of cases (0.95 level)          99.5192 %
+## Mean rel. region size (0.95 level)      91.3462 %
+## Total Number of Instances              208     
+## 
+## === Confusion Matrix ===
+## 
+##   a  b   &lt;-- classified as
+##  88 23 |  a = M
+##  25 72 |  b = R</code></pre>
+<pre class="r"><code>bagging_classifier_fold$details</code></pre>
+<pre><code>##               pctCorrect             pctIncorrect          pctUnclassified 
+##               76.9230769               23.0769231                0.0000000 
+##                    kappa        meanAbsoluteError     rootMeanSquaredError 
+##                0.5357575                0.3105684                0.3962523 
+##    relativeAbsoluteError rootRelativeSquaredError 
+##               62.3862270               79.4208081</code></pre>
+<pre class="r"><code>data_stats &lt;- findDataStats(labels)
+prediction_stats &lt;- list(
+  tp = bagging_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;R&quot;],
+  fp = bagging_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;R&quot;],
+  tn = bagging_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;M&quot;],
+  fn = bagging_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;M&quot;]
+)
+bagging_eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
+bagging_eval_measures</code></pre>
+<pre><code>## $accuracy
+## [1] 0.7692308
+## 
+## $error
+## [1] 0.2307692
+## 
+## $recall
+## [1] 0.742268
+## 
+## $precision
+## [1] 0.7578947
+## 
+## $f_score
+## [1] 0.75</code></pre>
+<ul>
+<li>Boosting</li>
+</ul>
+<pre class="r"><code>Boosting &lt;- make_Weka_classifier(&quot;weka/classifiers/meta/AdaBoostM1&quot;)
+boosting_classifier &lt;- Boosting(V61 ~ ., data = sonar, control = Weka_control(W = J48))
+boosting_classifier_fold &lt;- evaluate_Weka_classifier(boosting_classifier, numFolds = 10)
+
+boosting_classifier_fold</code></pre>
+<pre><code>## === 10 Fold Cross Validation ===
+## 
+## === Summary ===
+## 
+## Correctly Classified Instances         170               81.7308 %
+## Incorrectly Classified Instances        38               18.2692 %
+## Kappa statistic                          0.6315
+## Mean absolute error                      0.1814
+## Root mean squared error                  0.4018
+## Relative absolute error                 36.4386 %
+## Root relative squared error             80.53   %
+## Coverage of cases (0.95 level)          87.0192 %
+## Mean rel. region size (0.95 level)      55.2885 %
+## Total Number of Instances              208     
+## 
+## === Confusion Matrix ===
+## 
+##   a  b   &lt;-- classified as
+##  95 16 |  a = M
+##  22 75 |  b = R</code></pre>
+<pre class="r"><code>boosting_classifier_fold$details</code></pre>
+<pre><code>##               pctCorrect             pctIncorrect          pctUnclassified 
+##               81.7307692               18.2692308                0.0000000 
+##                    kappa        meanAbsoluteError     rootMeanSquaredError 
+##                0.6315152                0.1813973                0.4017866 
+##    relativeAbsoluteError rootRelativeSquaredError 
+##               36.4386453               80.5300352</code></pre>
+<pre class="r"><code>data_stats &lt;- findDataStats(labels)
+prediction_stats &lt;- list(
+  tp = boosting_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;R&quot;],
+  fp = boosting_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;R&quot;],
+  tn = boosting_classifier_fold$confusionMatrix[&quot;M&quot;, &quot;M&quot;],
+  fn = boosting_classifier_fold$confusionMatrix[&quot;R&quot;, &quot;M&quot;]
+)
+boosting_eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
+boosting_eval_measures</code></pre>
+<pre><code>## $accuracy
+## [1] 0.8173077
+## 
+## $error
+## [1] 0.1826923
+## 
+## $recall
+## [1] 0.7731959
+## 
+## $precision
+## [1] 0.8241758
+## 
+## $f_score
+## [1] 0.7978723</code></pre>
+<p>Combining all evaluation measures into 1 table.</p>
+<pre class="r"><code>all_eval_measures &lt;- data.frame(
+  Measure=c(&quot;accuracy&quot;, &quot;error&quot;, &quot;recall&quot;, &quot;precision&quot;, &quot;f_score&quot;),
+  C4.5_Decision_Tree=c(c45_tree_eval_measures$accuracy, c45_tree_eval_measures$error, c45_tree_eval_measures$recall, c45_tree_eval_measures$precision, c45_tree_eval_measures$f_score),
+  Random_Forest=c(rf_eval_measures$accuracy, rf_eval_measures$error, rf_eval_measures$recall, rf_eval_measures$precision, rf_eval_measures$f_score),
+  SVM=c(svm_eval_measures$accuracy, svm_eval_measures$error, svm_eval_measures$recall, svm_eval_measures$precision, svm_eval_measures$f_score),
+  Naive_Bayes=c(nb_eval_measures$accuracy, nb_eval_measures$error, nb_eval_measures$recall, nb_eval_measures$precision, nb_eval_measures$f_score),
+  Neural_Networks=c(nn_eval_measures$accuracy, nn_eval_measures$error, nn_eval_measures$recall, nn_eval_measures$precision, nn_eval_measures$f_score),
+  Bagging=c(bagging_eval_measures$accuracy, bagging_eval_measures$error, bagging_eval_measures$recall, bagging_eval_measures$precision, bagging_eval_measures$f_score),
+  Boosting=c(boosting_eval_measures$accuracy, boosting_eval_measures$error, boosting_eval_measures$recall, boosting_eval_measures$precision, boosting_eval_measures$f_score)
+)
+
+formattable(all_eval_measures, list())</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="right">Measure</th>
+<th align="right">C4.5_Decision_Tree</th>
+<th align="right">Random_Forest</th>
+<th align="right">SVM</th>
+<th align="right">Naive_Bayes</th>
+<th align="right">Neural_Networks</th>
+<th align="right">Bagging</th>
+<th align="right">Boosting</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">accuracy</td>
+<td align="right">0.7548077</td>
+<td align="right">0.8173077</td>
+<td align="right">0.9807692</td>
+<td align="right">0.6923077</td>
+<td align="right">0.8413462</td>
+<td align="right">0.7692308</td>
+<td align="right">0.8173077</td>
+</tr>
+<tr class="even">
+<td align="right">error</td>
+<td align="right">0.2451923</td>
+<td align="right">0.1826923</td>
+<td align="right">0.0192308</td>
+<td align="right">0.3076923</td>
+<td align="right">0.1586538</td>
+<td align="right">0.2307692</td>
+<td align="right">0.1826923</td>
+</tr>
+<tr class="odd">
+<td align="right">recall</td>
+<td align="right">0.7216495</td>
+<td align="right">0.7216495</td>
+<td align="right">1.0000000</td>
+<td align="right">0.8144330</td>
+<td align="right">0.7938144</td>
+<td align="right">0.7422680</td>
+<td align="right">0.7731959</td>
+</tr>
+<tr class="even">
+<td align="right">precision</td>
+<td align="right">0.7446809</td>
+<td align="right">0.8641975</td>
+<td align="right">0.9603960</td>
+<td align="right">0.6320000</td>
+<td align="right">0.8555556</td>
+<td align="right">0.7578947</td>
+<td align="right">0.8241758</td>
+</tr>
+<tr class="odd">
+<td align="right">f_score</td>
+<td align="right">0.7329843</td>
+<td align="right">0.7865169</td>
+<td align="right">0.9797980</td>
+<td align="right">0.7117117</td>
+<td align="right">0.8235294</td>
+<td align="right">0.7500000</td>
+<td align="right">0.7978723</td>
+</tr>
+</tbody>
+</table>
 
 
 
