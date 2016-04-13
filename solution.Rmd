@@ -5,7 +5,8 @@ library(rJava)
 library(partykit)
 library(e1071)
 library(formattable)
-library(xtable)
+library(hash)
+library(plyr)
 ```
 
 **PART 1**
@@ -434,17 +435,41 @@ formattable(mean_error_comparison, list())
 Performing student's paired T test.
 
 ```{r}
-getMeasureCombinations <- function(measure_comparison) {
+hashMatch <- function(x, y) {
+  laply(y, function(z) {
+    x[[z]]
+  })
+}
+
+getMeasureCombinations <- function(measure_comparison, alt) {
   modified_comparison <- subset(measure_comparison, select = -c(Measure))
   measure_combinations <- combn(names(modified_comparison), 2, simplify=FALSE)
+  
+  algo_cnt <- hash(names(modified_comparison), 0)
+  
   for(measure_combination in measure_combinations) {
     measure_data <- data.frame(measure_comparison$Measure)
     measure_data <- cbind(measure_data, measure_comparison[[measure_combination[1]]])
     measure_data <- cbind(measure_data, measure_comparison[[measure_combination[2]]])
+    
     colnames(measure_data) <- c("Measure", measure_combination[1], measure_combination[2])
     print(measure_data)
-    print(t.test(measure_data[[measure_combination[1]]], measure_data[[measure_combination[2]]], paired = TRUE))
+    
+    test_result <- t.test(measure_data[[measure_combination[1]]], measure_data[[measure_combination[2]]], paired = TRUE, alt = alt)
+    print(test_result)
+    
+    if(test_result$p.value < 0.05) {
+      algo_cnt[[measure_combination[1]]] <- algo_cnt[[measure_combination[1]]] + 1
+    } else {
+      algo_cnt[[measure_combination[2]]] <- algo_cnt[[measure_combination[2]]] + 1
+    }
   }
+  
+  algo_frame <- data.frame(names(modified_comparison))
+  algo_cnt_frame <- hashMatch(algo_cnt, names(modified_comparison))
+  algo_frame <- cbind(algo_frame, algo_cnt_frame)
+  colnames(algo_frame) <- c("Algorithm", "Count")
+  return(algo_frame)
 }
 ```
 
@@ -453,29 +478,34 @@ Performing test on:
 1. Accuracy
 
 ```{r}
-accuracy_combinations <- getMeasureCombinations(accuracy_comparison)
+accuracy_frame <- getMeasureCombinations(accuracy_comparison, "greater")
+formattable(accuracy_frame, list())
 ```
 
 2. Recall
 
 ```{r}
-recall_combinations <- getMeasureCombinations(recall_comparison)
+recall_frame <- getMeasureCombinations(recall_comparison, "greater")
+formattable(recall_frame, list())
 ```
 
 3. Precision
 
 ```{r}
-precision_combinations <- getMeasureCombinations(precision_comparison)
+precision_frame <- getMeasureCombinations(precision_comparison, "greater")
+formattable(precision_frame, list())
 ```
 
 4. F Score
 
 ```{r}
-f_score_combinations <- getMeasureCombinations(f_score_comparison)
+f_score_frame <- getMeasureCombinations(f_score_comparison, "greater")
+formattable(f_score_frame, list())
 ```
 
 5. Mean Error
 
 ```{r}
-mean_error_combinations <- getMeasureCombinations(mean_error_comparison)
+mean_error_frame <- getMeasureCombinations(mean_error_comparison, "less")
+formattable(mean_error_frame, list())
 ```
