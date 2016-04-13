@@ -5,6 +5,7 @@ library(rJava)
 library(partykit)
 library(e1071)
 library(formattable)
+library(xtable)
 ```
 
 **PART 1**
@@ -12,7 +13,8 @@ library(formattable)
 Reading data.
 
 ```{r}
-sonar = read.csv("sonar.all-data", header=FALSE)
+sonar = read.csv("data/sonar.all-data", header=FALSE)
+names(sonar)[names(sonar) == 'V61'] <- 'Class'
 
 dim(sonar)
 str(sonar)
@@ -26,11 +28,11 @@ head(sonar)
 Using C4.5 decision tree.
 
 ```{r}
-c45_tree_classifier <- J48(V61 ~ ., data = sonar)
+c45_tree_classifier <- J48(Class ~ ., data = sonar)
 
 c45_tree_classifier
 summary(c45_tree_classifier)
-table(sonar$V61, predict(c45_tree_classifier))
+table(sonar$Class, predict(c45_tree_classifier))
 plot(c45_tree_classifier,
      gp = gpar(fontsize = 6),
      inner_panel=node_inner,
@@ -41,52 +43,52 @@ plot(c45_tree_classifier,
 Experimenting with different parameters.
 
 ```{r}
-tree_classifier_1 <- J48(V61 ~ ., data = sonar, control = Weka_control(U = TRUE))
+tree_classifier_1 <- J48(Class ~ ., data = sonar, control = Weka_control(U = TRUE))
 tree_classifier_1
 summary(tree_classifier_1)
 
-tree_classifier_2 <- J48(V61 ~ ., data = sonar, control = Weka_control(R = TRUE))
+tree_classifier_2 <- J48(Class ~ ., data = sonar, control = Weka_control(R = TRUE))
 tree_classifier_2
 summary(tree_classifier_2)
 
-tree_classifier_3 <- J48(V61 ~ ., data = sonar, control = Weka_control(C = 0.1))
+tree_classifier_3 <- J48(Class ~ ., data = sonar, control = Weka_control(C = 0.1))
 tree_classifier_3
 summary(tree_classifier_3)
 
-tree_classifier_4 <- J48(V61 ~ ., data = sonar, control = Weka_control(C = 0.5))
+tree_classifier_4 <- J48(Class ~ ., data = sonar, control = Weka_control(C = 0.5))
 tree_classifier_4
 summary(tree_classifier_4)
 
-tree_classifier_5 <- J48(V61 ~ ., data = sonar, control = Weka_control(O = TRUE))
+tree_classifier_5 <- J48(Class ~ ., data = sonar, control = Weka_control(O = TRUE))
 tree_classifier_5
 summary(tree_classifier_5)
 
-tree_classifier_6 <- J48(V61 ~ ., data = sonar, control = Weka_control(R = TRUE, N = 5))
+tree_classifier_6 <- J48(Class ~ ., data = sonar, control = Weka_control(R = TRUE, N = 5))
 tree_classifier_6
 summary(tree_classifier_6)
 
-tree_classifier_7 <- J48(V61 ~ ., data = sonar, control = Weka_control(R = TRUE, N = 2))
+tree_classifier_7 <- J48(Class ~ ., data = sonar, control = Weka_control(R = TRUE, N = 2))
 tree_classifier_7
 summary(tree_classifier_7)
 
-tree_classifier_8 <- J48(V61 ~ ., data = sonar, control = Weka_control(S = TRUE))
+tree_classifier_8 <- J48(Class ~ ., data = sonar, control = Weka_control(S = TRUE))
 tree_classifier_8
 summary(tree_classifier_8)
 
-tree_classifier_9 <- J48(V61 ~ ., data = sonar, control = Weka_control(A = TRUE))
+tree_classifier_9 <- J48(Class ~ ., data = sonar, control = Weka_control(A = TRUE))
 tree_classifier_9
 summary(tree_classifier_9)
 
 # Best result
-tree_classifier_10 <- J48(V61 ~ ., data = sonar, control = Weka_control(J = TRUE))
+tree_classifier_10 <- J48(Class ~ ., data = sonar, control = Weka_control(J = TRUE))
 tree_classifier_10
 summary(tree_classifier_10)
 
-tree_classifier_11 <- J48(V61 ~ ., data = sonar, control = Weka_control(doNotMakeSplitPointActualValue = TRUE))
+tree_classifier_11 <- J48(Class ~ ., data = sonar, control = Weka_control(doNotMakeSplitPointActualValue = TRUE))
 tree_classifier_11
 summary(tree_classifier_11)
 
-tree_classifier_12 <- J48(V61 ~ ., data = sonar, control = Weka_control(J = TRUE, R = TRUE, N = 10))
+tree_classifier_12 <- J48(Class ~ ., data = sonar, control = Weka_control(J = TRUE, R = TRUE, N = 10))
 tree_classifier_12
 summary(tree_classifier_12)
 ```
@@ -154,13 +156,38 @@ findEvalMeasures <- function(data_stats, prediction_stats) {
   )
   return(eval_measures)
 }
+
+getStats <- function(classifier, labels, num_folds) {
+  classifier_fold <- evaluate_Weka_classifier(classifier, numFolds = num_folds)
+  
+  print(classifier_fold)
+  print(summary(classifier_fold))
+  
+  print(classifier_fold$details)
+  confusionMatrix <- classifier_fold$confusionMatrix
+  
+  data_stats <- findDataStats(as.vector(labels))
+  
+  pos <- data_stats$p_symbol
+  neg <- data_stats$n_symbol
+  
+  prediction_stats <- list(
+    tp = confusionMatrix[pos, pos],
+    fp = confusionMatrix[neg, pos],
+    tn = confusionMatrix[neg, neg],
+    fn = confusionMatrix[pos, neg]
+  )
+  eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+  eval_measures$mean_error <- classifier_fold$details["meanAbsoluteError"]
+  return(eval_measures)
+}
 ```
 
 Calculating evaluation measures to C4.5 decision tree.
 
 ```{r}
 predictions <- as.vector(predict(c45_tree_classifier))
-labels <- as.vector(sonar$V61)
+labels <- as.vector(sonar$Class)
 
 data_stats <- findDataStats(labels)
 prediction_stats <- findPredictionStats(data_stats, labels, predictions)
@@ -171,21 +198,12 @@ eval_measures
 Using 10-fold cross validation for C4.5 decision tree.
 
 ```{r}
-c45_tree_classifier_fold <- evaluate_Weka_classifier(c45_tree_classifier, numFolds = 10)
+c45_tree_func <- function(input_data, num_folds) {
+  c45_tree_classifier <- J48(Class ~ ., data = input_data)
+  return(getStats(c45_tree_classifier, input_data$Class, num_folds))
+}
 
-c45_tree_classifier_fold
-summary(c45_tree_classifier_fold)
-
-c45_tree_classifier_fold$details
-
-data_stats <- findDataStats(labels)
-prediction_stats <- list(
-  tp = c45_tree_classifier_fold$confusionMatrix["R", "R"],
-  fp = c45_tree_classifier_fold$confusionMatrix["M", "R"],
-  tn = c45_tree_classifier_fold$confusionMatrix["M", "M"],
-  fn = c45_tree_classifier_fold$confusionMatrix["R", "M"]
-)
-c45_tree_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+c45_tree_eval_measures <- c45_tree_func(sonar, 10)
 c45_tree_eval_measures
 ```
 
@@ -198,82 +216,51 @@ Using other classification algorithms with 10-fold cross validation.
 1. Random Forest
 
 ```{r}
-RandomForest <- make_Weka_classifier("weka/classifiers/trees/RandomForest")
-random_forest_classifier <- RandomForest(V61 ~ ., data = sonar)
-random_forest_classifier_fold <- evaluate_Weka_classifier(random_forest_classifier, numFolds = 10)
+random_forest_func <- function(input_data, num_folds) {
+  RandomForest <- make_Weka_classifier("weka/classifiers/trees/RandomForest")
+  random_forest_classifier <- RandomForest(Class ~ ., data = input_data)
+  return(getStats(random_forest_classifier, input_data$Class, num_folds))
+}
 
-random_forest_classifier_fold
-random_forest_classifier_fold$details
-
-data_stats <- findDataStats(labels)
-prediction_stats <- list(
-  tp = random_forest_classifier_fold$confusionMatrix["R", "R"],
-  fp = random_forest_classifier_fold$confusionMatrix["M", "R"],
-  tn = random_forest_classifier_fold$confusionMatrix["M", "M"],
-  fn = random_forest_classifier_fold$confusionMatrix["R", "M"]
-)
-rf_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+rf_eval_measures <- random_forest_func(sonar, 10)
 rf_eval_measures
 ```
 
 2. Support Vector Machines
 
 ```{r}
-svm_classifier <- svm(V61 ~ ., data = sonar, cross = 10)
-svm_classifier
-summary(svm_classifier)
+svm_func <- function(input_data, num_folds) {
+  svm_classifier <- SMO(Class ~ ., data = input_data)
+  return(getStats(svm_classifier, input_data$Class, num_folds))
+}
 
-svm_predict <- fitted(svm_classifier)
-table(sonar$V61, svm_predict)
-
-predictions <- as.vector(svm_predict)
-labels <- as.vector(sonar$V61)
-
-data_stats <- findDataStats(labels)
-prediction_stats <- findPredictionStats(data_stats, labels, predictions)
-svm_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+svm_eval_measures <- svm_func(sonar, 10)
 svm_eval_measures
 ```
 
 3. Naive Bayes
 
 ```{r}
-NaiveBayes <- make_Weka_classifier("weka/classifiers/bayes/NaiveBayes")
-naive_bayes_classifier <- NaiveBayes(V61 ~ ., data = sonar)
-naive_bayes_classifier_fold <- evaluate_Weka_classifier(naive_bayes_classifier, numFolds = 10)
+naive_bayes_func <- function(input_data, num_folds) {
+  NaiveBayes <- make_Weka_classifier("weka/classifiers/bayes/NaiveBayes")
+  naive_bayes_classifier <- NaiveBayes(Class ~ ., data = input_data)
+  return(getStats(naive_bayes_classifier, input_data$Class, num_folds))
+}
 
-naive_bayes_classifier_fold
-naive_bayes_classifier_fold$details
-
-data_stats <- findDataStats(labels)
-prediction_stats <- list(
-  tp = naive_bayes_classifier_fold$confusionMatrix["R", "R"],
-  fp = naive_bayes_classifier_fold$confusionMatrix["M", "R"],
-  tn = naive_bayes_classifier_fold$confusionMatrix["M", "M"],
-  fn = naive_bayes_classifier_fold$confusionMatrix["R", "M"]
-)
-nb_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+nb_eval_measures <- naive_bayes_func(sonar, 10)
 nb_eval_measures
 ```
 
 4. Neural Networks
 
 ```{r}
-NeuralNetworks <- make_Weka_classifier("weka/classifiers/functions/MultilayerPerceptron")
-neural_networks_classifier <- NeuralNetworks(V61 ~ ., data = sonar)
-neural_networks_classifier_fold <- evaluate_Weka_classifier(neural_networks_classifier, numFolds = 10)
+neural_networks_func <- function(input_data, num_folds) {
+  NeuralNetworks <- make_Weka_classifier("weka/classifiers/functions/MultilayerPerceptron")
+  neural_networks_classifier <- NeuralNetworks(Class ~ ., data = input_data, control = Weka_control(N = 10))
+  return(getStats(neural_networks_classifier, input_data$Class, num_folds))
+}
 
-neural_networks_classifier_fold
-neural_networks_classifier_fold$details
-
-data_stats <- findDataStats(labels)
-prediction_stats <- list(
-  tp = neural_networks_classifier_fold$confusionMatrix["R", "R"],
-  fp = neural_networks_classifier_fold$confusionMatrix["M", "R"],
-  tn = neural_networks_classifier_fold$confusionMatrix["M", "M"],
-  fn = neural_networks_classifier_fold$confusionMatrix["R", "M"]
-)
-nn_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+nn_eval_measures <- neural_networks_func(sonar, 10)
 nn_eval_measures
 ```
 
@@ -282,42 +269,26 @@ nn_eval_measures
 * Bagging
 
 ```{r}
-Bagging <- make_Weka_classifier("weka/classifiers/meta/Bagging")
-bagging_classifier <- Bagging(V61 ~ ., data = sonar, control = Weka_control(W = J48))
-bagging_classifier_fold <- evaluate_Weka_classifier(bagging_classifier, numFolds = 10)
+bagging_func <- function(input_data, num_folds) {
+  Bagging <- make_Weka_classifier("weka/classifiers/meta/Bagging")
+  bagging_classifier <- Bagging(Class ~ ., data = input_data, control = Weka_control(W = J48))
+  return(getStats(bagging_classifier, input_data$Class, num_folds))
+}
 
-bagging_classifier_fold
-bagging_classifier_fold$details
-
-data_stats <- findDataStats(labels)
-prediction_stats <- list(
-  tp = bagging_classifier_fold$confusionMatrix["R", "R"],
-  fp = bagging_classifier_fold$confusionMatrix["M", "R"],
-  tn = bagging_classifier_fold$confusionMatrix["M", "M"],
-  fn = bagging_classifier_fold$confusionMatrix["R", "M"]
-)
-bagging_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+bagging_eval_measures <- bagging_func(sonar, 10)
 bagging_eval_measures
 ```
 
 * Boosting
 
 ```{r}
-Boosting <- make_Weka_classifier("weka/classifiers/meta/AdaBoostM1")
-boosting_classifier <- Boosting(V61 ~ ., data = sonar, control = Weka_control(W = J48))
-boosting_classifier_fold <- evaluate_Weka_classifier(boosting_classifier, numFolds = 10)
+boosting_func <- function(input_data, num_folds) {
+  Boosting <- make_Weka_classifier("weka/classifiers/meta/AdaBoostM1")
+  boosting_classifier <- Boosting(Class ~ ., data = input_data, control = Weka_control(W = J48))
+  return(getStats(boosting_classifier, input_data$Class, num_folds))
+}
 
-boosting_classifier_fold
-boosting_classifier_fold$details
-
-data_stats <- findDataStats(labels)
-prediction_stats <- list(
-  tp = boosting_classifier_fold$confusionMatrix["R", "R"],
-  fp = boosting_classifier_fold$confusionMatrix["M", "R"],
-  tn = boosting_classifier_fold$confusionMatrix["M", "M"],
-  fn = boosting_classifier_fold$confusionMatrix["R", "M"]
-)
-boosting_eval_measures <- findEvalMeasures(data_stats, prediction_stats)
+boosting_eval_measures <- boosting_func(sonar, 10)
 boosting_eval_measures
 ```
 
@@ -325,15 +296,186 @@ Combining all evaluation measures into 1 table.
 
 ```{r}
 all_eval_measures <- data.frame(
-  Measure=c("accuracy", "error", "recall", "precision", "f_score"),
-  C4.5_Decision_Tree=c(c45_tree_eval_measures$accuracy, c45_tree_eval_measures$error, c45_tree_eval_measures$recall, c45_tree_eval_measures$precision, c45_tree_eval_measures$f_score),
-  Random_Forest=c(rf_eval_measures$accuracy, rf_eval_measures$error, rf_eval_measures$recall, rf_eval_measures$precision, rf_eval_measures$f_score),
-  SVM=c(svm_eval_measures$accuracy, svm_eval_measures$error, svm_eval_measures$recall, svm_eval_measures$precision, svm_eval_measures$f_score),
-  Naive_Bayes=c(nb_eval_measures$accuracy, nb_eval_measures$error, nb_eval_measures$recall, nb_eval_measures$precision, nb_eval_measures$f_score),
-  Neural_Networks=c(nn_eval_measures$accuracy, nn_eval_measures$error, nn_eval_measures$recall, nn_eval_measures$precision, nn_eval_measures$f_score),
-  Bagging=c(bagging_eval_measures$accuracy, bagging_eval_measures$error, bagging_eval_measures$recall, bagging_eval_measures$precision, bagging_eval_measures$f_score),
-  Boosting=c(boosting_eval_measures$accuracy, boosting_eval_measures$error, boosting_eval_measures$recall, boosting_eval_measures$precision, boosting_eval_measures$f_score)
+  Measure=c("accuracy", "mean_error", "recall", "precision", "f_score"),
+  C4.5_Decision_Tree=c(c45_tree_eval_measures$accuracy, c45_tree_eval_measures$mean_error, c45_tree_eval_measures$recall, c45_tree_eval_measures$precision, c45_tree_eval_measures$f_score),
+  Random_Forest=c(rf_eval_measures$accuracy, rf_eval_measures$mean_error, rf_eval_measures$recall, rf_eval_measures$precision, rf_eval_measures$f_score),
+  SVM=c(svm_eval_measures$accuracy, svm_eval_measures$mean_error, svm_eval_measures$recall, svm_eval_measures$precision, svm_eval_measures$f_score),
+  Naive_Bayes=c(nb_eval_measures$accuracy, nb_eval_measures$mean_error, nb_eval_measures$recall, nb_eval_measures$precision, nb_eval_measures$f_score),
+  Neural_Networks=c(nn_eval_measures$accuracy, nn_eval_measures$mean_error, nn_eval_measures$recall, nn_eval_measures$precision, nn_eval_measures$f_score),
+  Bagging=c(bagging_eval_measures$accuracy, bagging_eval_measures$mean_error, bagging_eval_measures$recall, bagging_eval_measures$precision, bagging_eval_measures$f_score),
+  Boosting=c(boosting_eval_measures$accuracy, boosting_eval_measures$mean_error, boosting_eval_measures$recall, boosting_eval_measures$precision, boosting_eval_measures$f_score)
 )
 
 formattable(all_eval_measures, list())
+```
+
+**PART 4**
+
+Importing other datasets.
+
+```{r}
+hepatitis = read.csv("data/hepatitis.data", header=FALSE)
+names(hepatitis)[names(hepatitis) == 'V1'] <- 'Class'
+hepatitis$Class <- as.factor(hepatitis$Class)
+
+pima = read.csv("data/pima-indians-diabetes.data", header=FALSE)
+names(pima)[names(pima) == 'V9'] <- 'Class'
+pima$Class <- as.factor(pima$Class)
+
+spect_train = read.csv("data/SPECT.train", header=FALSE)
+spect_test = read.csv("data/SPECT.test", header=FALSE)
+spect <- rbind(spect_train, spect_test)
+names(spect)[names(spect) == 'V1'] <- 'Class'
+spect$Class <- as.factor(spect$Class)
+
+spectf_train = read.csv("data/SPECTF.train", header=FALSE)
+spectf_test = read.csv("data/SPECTF.test", header=FALSE)
+spectf <- rbind(spectf_train, spectf_test)
+names(spectf)[names(spectf) == 'V1'] <- 'Class'
+spectf$Class <- as.factor(spectf$Class)
+```
+
+Testing multiple algorithms on multiple datasets.
+
+```{r}
+hepatitis_c45_tree_eval_measures <- c45_tree_func(hepatitis, 10)
+hepatitis_rf_eval_measures <- random_forest_func(hepatitis, 10)
+hepatitis_svm_eval_measures <- svm_func(hepatitis, 10)
+hepatitis_nb_eval_measures <- naive_bayes_func(hepatitis, 10)
+hepatitis_nn_eval_measures <- neural_networks_func(hepatitis, 10)
+hepatitis_bagging_eval_measures <- bagging_func(hepatitis, 10)
+hepatitis_boosting_eval_measures <- boosting_func(hepatitis, 10)
+
+pima_c45_tree_eval_measures <- c45_tree_func(pima, 10)
+pima_rf_eval_measures <- random_forest_func(pima, 10)
+pima_svm_eval_measures <- svm_func(pima, 10)
+pima_nb_eval_measures <- naive_bayes_func(pima, 10)
+pima_nn_eval_measures <- neural_networks_func(pima, 10)
+pima_bagging_eval_measures <- bagging_func(pima, 10)
+pima_boosting_eval_measures <- boosting_func(pima, 10)
+
+spect_c45_tree_eval_measures <- c45_tree_func(spect, 10)
+spect_rf_eval_measures <- random_forest_func(spect, 10)
+spect_svm_eval_measures <- svm_func(spect, 10)
+spect_nb_eval_measures <- naive_bayes_func(spect, 10)
+spect_nn_eval_measures <- neural_networks_func(spect, 10)
+spect_bagging_eval_measures <- bagging_func(spect, 10)
+spect_boosting_eval_measures <- boosting_func(spect, 10)
+
+spectf_c45_tree_eval_measures <- c45_tree_func(spectf, 10)
+spectf_rf_eval_measures <- random_forest_func(spectf, 10)
+spectf_svm_eval_measures <- svm_func(spectf, 10)
+spectf_nb_eval_measures <- naive_bayes_func(spectf, 10)
+spectf_nn_eval_measures <- neural_networks_func(spectf, 10)
+spectf_bagging_eval_measures <- bagging_func(spectf, 10)
+spectf_boosting_eval_measures <- boosting_func(spectf, 10)
+```
+
+Presenting the results in a table.
+
+```{r}
+getMeasure <- function(measure_name) {
+  Measure <- c("Sonar", "Hepatitis", "Pima-Indian Diabetes", "SPECT", "SPECTF")
+  
+  C4.5_Decision_Tree <- c(c45_tree_eval_measures[[measure_name]], hepatitis_c45_tree_eval_measures[[measure_name]], pima_c45_tree_eval_measures[[measure_name]], spect_c45_tree_eval_measures[[measure_name]], spectf_c45_tree_eval_measures[[measure_name]])
+
+  Random_Forest <- c(rf_eval_measures[[measure_name]], hepatitis_rf_eval_measures[[measure_name]], pima_rf_eval_measures[[measure_name]], spect_rf_eval_measures[[measure_name]], spectf_rf_eval_measures[[measure_name]])
+  
+  SVM <- c(svm_eval_measures[[measure_name]], hepatitis_svm_eval_measures[[measure_name]], pima_svm_eval_measures[[measure_name]], spect_svm_eval_measures[[measure_name]], spectf_svm_eval_measures[[measure_name]])
+  
+  Naive_Bayes <- c(nb_eval_measures[[measure_name]], hepatitis_nb_eval_measures[[measure_name]], pima_nb_eval_measures[[measure_name]], spect_nb_eval_measures[[measure_name]], spectf_nb_eval_measures[[measure_name]])
+  
+  Neural_Networks <- c(nn_eval_measures[[measure_name]], hepatitis_nn_eval_measures[[measure_name]], pima_nn_eval_measures[[measure_name]], spect_nn_eval_measures[[measure_name]], spectf_nn_eval_measures[[measure_name]])
+  
+  Bagging <- c(bagging_eval_measures[[measure_name]], hepatitis_bagging_eval_measures[[measure_name]], pima_bagging_eval_measures[[measure_name]], spect_bagging_eval_measures[[measure_name]], spectf_bagging_eval_measures[[measure_name]])
+  
+  Boosting <- c(boosting_eval_measures[[measure_name]], hepatitis_boosting_eval_measures[[measure_name]], pima_boosting_eval_measures[[measure_name]], spect_boosting_eval_measures[[measure_name]], spectf_boosting_eval_measures[[measure_name]])
+  
+  measure <- data.frame(Measure, C4.5_Decision_Tree, Random_Forest, SVM, Naive_Bayes, Neural_Networks, Bagging, Boosting)
+  return(measure)
+}
+```
+
+1. Accuracy
+
+```{r}
+accuracy_comparison <- getMeasure("accuracy")
+formattable(accuracy_comparison, list())
+```
+
+2. Recall
+
+```{r}
+recall_comparison <- getMeasure("recall")
+formattable(recall_comparison, list())
+```
+
+3. Precision
+
+```{r}
+precision_comparison <- getMeasure("precision")
+formattable(precision_comparison, list())
+```
+
+4. F Score
+
+```{r}
+f_score_comparison <- getMeasure("f_score")
+formattable(f_score_comparison, list())
+```
+
+5. Mean Error
+
+```{r}
+mean_error_comparison <- getMeasure("mean_error")
+formattable(mean_error_comparison, list())
+```
+
+Performing student's paired T test.
+
+```{r}
+getMeasureCombinations <- function(measure_comparison) {
+  modified_comparison <- subset(measure_comparison, select = -c(Measure))
+  measure_combinations <- combn(names(modified_comparison), 2, simplify=FALSE)
+  for(measure_combination in measure_combinations) {
+    measure_data <- data.frame(measure_comparison$Measure)
+    measure_data <- cbind(measure_data, measure_comparison[[measure_combination[1]]])
+    measure_data <- cbind(measure_data, measure_comparison[[measure_combination[2]]])
+    colnames(measure_data) <- c("Measure", measure_combination[1], measure_combination[2])
+    print(measure_data)
+    print(t.test(measure_data[[measure_combination[1]]], measure_data[[measure_combination[2]]], paired = TRUE))
+  }
+}
+```
+
+Performing test on:
+
+1. Accuracy
+
+```{r}
+accuracy_combinations <- getMeasureCombinations(accuracy_comparison)
+```
+
+2. Recall
+
+```{r}
+recall_combinations <- getMeasureCombinations(recall_comparison)
+```
+
+3. Precision
+
+```{r}
+precision_combinations <- getMeasureCombinations(precision_comparison)
+```
+
+4. F Score
+
+```{r}
+f_score_combinations <- getMeasureCombinations(f_score_comparison)
+```
+
+5. Mean Error
+
+```{r}
+mean_error_combinations <- getMeasureCombinations(mean_error_comparison)
 ```
