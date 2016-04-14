@@ -475,35 +475,35 @@ getMeasureCombinations <- function(measure_comparison, alt) {
 
 Performing test on:
 
-1. Accuracy
+* Accuracy
 
 ```{r}
 accuracy_frame <- getMeasureCombinations(accuracy_comparison, "greater")
 formattable(accuracy_frame, list())
 ```
 
-2. Recall
+* Recall
 
 ```{r}
 recall_frame <- getMeasureCombinations(recall_comparison, "greater")
 formattable(recall_frame, list())
 ```
 
-3. Precision
+* Precision
 
 ```{r}
 precision_frame <- getMeasureCombinations(precision_comparison, "greater")
 formattable(precision_frame, list())
 ```
 
-4. F Score
+* F Score
 
 ```{r}
 f_score_frame <- getMeasureCombinations(f_score_comparison, "greater")
 formattable(f_score_frame, list())
 ```
 
-5. Mean Error
+* Mean Error
 
 ```{r}
 mean_error_frame <- getMeasureCombinations(mean_error_comparison, "less")
@@ -514,4 +514,4 @@ formattable(mean_error_frame, list())
 
 After performing the test on all algorithms used two by two for all measures on each dataset, it can be concluded that:
 
-`Bagging` and `Boosting` algorithms are statistically significant better than the other algorithms. However, there is no clear and only winner which is acceptable because each algorithm has its own advantages and disadvantages that would be useful for different datasets.
+`Bagging` and `Boosting` algorithms are statistically significant better than the other algorithms although they both have the `C4.5 decision tree` which has the least number of wins as their base classifier and this is due to the nature of the classification process used in both algorithms that depends on ensemble learning. Also, repeated test runs show that `Boosting` achieves better statistically significant results than `Bagging`. However, there is no clear and only winner which is acceptable because each algorithm has its own advantages and disadvantages that would be useful for different datasets.
