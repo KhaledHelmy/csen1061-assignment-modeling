@@ -397,35 +397,35 @@ getMeasure <- function(measure_name) {
 }
 ```
 
-1. Accuracy
+* Accuracy
 
 ```{r}
 accuracy_comparison <- getMeasure("accuracy")
 formattable(accuracy_comparison, list())
 ```
 
-2. Recall
+* Recall
 
 ```{r}
 recall_comparison <- getMeasure("recall")
 formattable(recall_comparison, list())
 ```
 
-3. Precision
+* Precision
 
 ```{r}
 precision_comparison <- getMeasure("precision")
 formattable(precision_comparison, list())
 ```
 
-4. F Score
+* F Score
 
 ```{r}
 f_score_comparison <- getMeasure("f_score")
 formattable(f_score_comparison, list())
 ```
 
-5. Mean Error
+* Mean Error
 
 ```{r}
 mean_error_comparison <- getMeasure("mean_error")
