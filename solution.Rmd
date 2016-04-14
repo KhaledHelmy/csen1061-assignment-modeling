@@ -468,7 +468,7 @@ getMeasureCombinations <- function(measure_comparison, alt) {
   algo_frame <- data.frame(names(modified_comparison))
   algo_cnt_frame <- hashMatch(algo_cnt, names(modified_comparison))
   algo_frame <- cbind(algo_frame, algo_cnt_frame)
-  colnames(algo_frame) <- c("Algorithm", "Count")
+  colnames(algo_frame) <- c("Algorithm", "Win Count")
   return(algo_frame)
 }
 ```
@@ -509,3 +509,9 @@ formattable(f_score_frame, list())
 mean_error_frame <- getMeasureCombinations(mean_error_comparison, "less")
 formattable(mean_error_frame, list())
 ```
+
+**Result Interpretation**
+
+After performing the test on all algorithms used two by two for all measures on each dataset, it can be concluded that:
+
+`Bagging` and `Boosting` algorithms are statistically significant better than the other algorithms. However, there is no clear and only winner which is acceptable because each algorithm has its own advantages and disadvantages that would be useful for different datasets.
