@@ -24,6 +24,8 @@ summary(sonar)
 head(sonar)
 ```
 
+The dataset consists of 208 rows and 61 columns. It is a small dataset. `V61` is the class column so it has been renamed to `Class` in order to generalize the class column over all datasets.
+
 **PART 2**
 
 Using C4.5 decision tree.
@@ -41,58 +43,50 @@ plot(c45_tree_classifier,
 )
 ```
 
+The accuracy of the classifier over the dataset is `98%`, however, the classifier has been trained and tested over the same data so its model is overfitting.
+
 Experimenting with different parameters.
 
 ```{r}
 tree_classifier_1 <- J48(Class ~ ., data = sonar, control = Weka_control(U = TRUE))
-tree_classifier_1
 summary(tree_classifier_1)
 
 tree_classifier_2 <- J48(Class ~ ., data = sonar, control = Weka_control(R = TRUE))
-tree_classifier_2
 summary(tree_classifier_2)
 
 tree_classifier_3 <- J48(Class ~ ., data = sonar, control = Weka_control(C = 0.1))
-tree_classifier_3
 summary(tree_classifier_3)
 
 tree_classifier_4 <- J48(Class ~ ., data = sonar, control = Weka_control(C = 0.5))
-tree_classifier_4
 summary(tree_classifier_4)
 
 tree_classifier_5 <- J48(Class ~ ., data = sonar, control = Weka_control(O = TRUE))
-tree_classifier_5
 summary(tree_classifier_5)
 
 tree_classifier_6 <- J48(Class ~ ., data = sonar, control = Weka_control(R = TRUE, N = 5))
-tree_classifier_6
 summary(tree_classifier_6)
 
 tree_classifier_7 <- J48(Class ~ ., data = sonar, control = Weka_control(R = TRUE, N = 2))
-tree_classifier_7
 summary(tree_classifier_7)
 
 tree_classifier_8 <- J48(Class ~ ., data = sonar, control = Weka_control(S = TRUE))
-tree_classifier_8
 summary(tree_classifier_8)
 
 tree_classifier_9 <- J48(Class ~ ., data = sonar, control = Weka_control(A = TRUE))
-tree_classifier_9
 summary(tree_classifier_9)
 
 # Best result
 tree_classifier_10 <- J48(Class ~ ., data = sonar, control = Weka_control(J = TRUE))
-tree_classifier_10
 summary(tree_classifier_10)
 
 tree_classifier_11 <- J48(Class ~ ., data = sonar, control = Weka_control(doNotMakeSplitPointActualValue = TRUE))
-tree_classifier_11
 summary(tree_classifier_11)
 
 tree_classifier_12 <- J48(Class ~ ., data = sonar, control = Weka_control(J = TRUE, R = TRUE, N = 10))
-tree_classifier_12
 summary(tree_classifier_12)
 ```
+
+Modifying different parameters has resulted in varying accuracies for the classifiers. The best accuracy results came from classifer 10 in which it doesn't use MDL correction for info gain on numeric attributes where the accuracy reached `98.5%`.
 
 Adding classification evaluation measures.
 
@@ -161,10 +155,10 @@ findEvalMeasures <- function(data_stats, prediction_stats) {
 getStats <- function(classifier, labels, num_folds) {
   classifier_fold <- evaluate_Weka_classifier(classifier, numFolds = num_folds)
   
-  print(classifier_fold)
-  print(summary(classifier_fold))
+  #print(classifier_fold)
+  #print(summary(classifier_fold))
   
-  print(classifier_fold$details)
+  #print(classifier_fold$details)
   confusionMatrix <- classifier_fold$confusionMatrix
   
   data_stats <- findDataStats(as.vector(labels))
@@ -208,13 +202,15 @@ c45_tree_eval_measures <- c45_tree_func(sonar, 10)
 c45_tree_eval_measures
 ```
 
-It is evident that using a 10-fold validation produced worse results than using the normal decision tree but this is due to the fact that the normal decision is training and testing on the same data which results in over-fitting.
+When using the 10-fold validation, the accuracy dropped to `71%`.
+
+It is evident that using a 10-fold validation produced lower results than using the normal decision tree but this is due to the fact that the normal decision tree has been trained and tested on the same data which results in over-fitting.
 
 **PART 3**
 
 Using other classification algorithms with 10-fold cross validation.
 
-1. Random Forest
+* Random Forest
 
 ```{r}
 random_forest_func <- function(input_data, num_folds) {
@@ -227,7 +223,7 @@ rf_eval_measures <- random_forest_func(sonar, 10)
 rf_eval_measures
 ```
 
-2. Support Vector Machines
+* Support Vector Machines
 
 ```{r}
 svm_func <- function(input_data, num_folds) {
@@ -239,7 +235,7 @@ svm_eval_measures <- svm_func(sonar, 10)
 svm_eval_measures
 ```
 
-3. Naive Bayes
+* Naive Bayes
 
 ```{r}
 naive_bayes_func <- function(input_data, num_folds) {
@@ -252,7 +248,7 @@ nb_eval_measures <- naive_bayes_func(sonar, 10)
 nb_eval_measures
 ```
 
-4. Neural Networks
+* Neural Networks
 
 ```{r}
 neural_networks_func <- function(input_data, num_folds) {
@@ -264,8 +260,6 @@ neural_networks_func <- function(input_data, num_folds) {
 nn_eval_measures <- neural_networks_func(sonar, 10)
 nn_eval_measures
 ```
-
-5. Ensemble Learning
 
 * Bagging
 
@@ -309,6 +303,10 @@ all_eval_measures <- data.frame(
 
 formattable(all_eval_measures, list())
 ```
+
+**Result Interpretation**
+
+From the above table, it is concluded that `Naive Bayes` has the lowest accuracy with `67%` and `Random Forest` has the highest accuracy with `84%` over this dataset. Monitoring the algorithms' performance measures on 1 dataset only is not enough as the classification algorithm depends on the nature of the dataset used so it is needed to do the testing on more than 1 dataset which moves the report to the next section.
 
 **PART 4**
 
@@ -432,6 +430,10 @@ mean_error_comparison <- getMeasure("mean_error")
 formattable(mean_error_comparison, list())
 ```
 
+**Result Interpretation**
+
+After looking on all the previous tables in which they contain the algorithms' performance results over all datasets for each performance measure, it is noticed that every algorithm performance measure vary depending on the dataset used which is acceptable due to the different nature of the datasets used and of course for the different nature of the algorithm itself. So, to compare the overall performance of each algorithm, it is needed to have a more conclusive generalized measure which can be interpreted into a more meaningful result and that moves the report to the next section which is testing.
+
 Performing student's paired T test.
 
 ```{r}
@@ -453,10 +455,10 @@ getMeasureCombinations <- function(measure_comparison, alt) {
     measure_data <- cbind(measure_data, measure_comparison[[measure_combination[2]]])
     
     colnames(measure_data) <- c("Measure", measure_combination[1], measure_combination[2])
-    print(measure_data)
+    #print(measure_data)
     
     test_result <- t.test(measure_data[[measure_combination[1]]], measure_data[[measure_combination[2]]], paired = TRUE, alt = alt)
-    print(test_result)
+    #print(test_result)
     
     if(test_result$p.value < 0.05) {
       algo_cnt[[measure_combination[1]]] <- algo_cnt[[measure_combination[1]]] + 1
@@ -514,4 +516,4 @@ formattable(mean_error_frame, list())
 
 After performing the test on all algorithms used two by two for all measures on each dataset, it can be concluded that:
 
-`Bagging` and `Boosting` algorithms are statistically significant better than the other algorithms although they both have the `C4.5 decision tree` which has the least number of wins as their base classifier and this is due to the nature of the classification process used in both algorithms that depends on ensemble learning. Also, repeated test runs show that `Boosting` achieves better statistically significant results than `Bagging`. However, there is no clear and only winner which is acceptable because each algorithm has its own advantages and disadvantages that would be useful for different datasets.
+`Bagging` and `Boosting` algorithms are statistically significant better than the other algorithms although they both have the `C4.5 Decision Tree` which has the least number of wins as their base classifier and this is due to the nature of the classification process used in both algorithms that depends on ensemble learning. Also, repeated test runs show that `Boosting` achieves better statistically significant results than `Bagging`. However, there is no clear and only winner which is acceptable because each algorithm has its own advantages and disadvantages that would be useful for different datasets.
