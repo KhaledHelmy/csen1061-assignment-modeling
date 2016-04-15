@@ -750,8 +750,8 @@ findEvalMeasures &lt;- function(data_stats, prediction_stats) {
   return(eval_measures)
 }
 
-getStats &lt;- function(classifier, labels, num_folds) {
-  classifier_fold &lt;- evaluate_Weka_classifier(classifier, numFolds = num_folds)
+getStats &lt;- function(classifier, labels, num_folds, seed = NULL) {
+  classifier_fold &lt;- evaluate_Weka_classifier(classifier, numFolds = num_folds, seed = seed)
   
   #print(classifier_fold)
   #print(summary(classifier_fold))
@@ -771,8 +771,41 @@ getStats &lt;- function(classifier, labels, num_folds) {
     fn = confusionMatrix[pos, neg]
   )
   eval_measures &lt;- findEvalMeasures(data_stats, prediction_stats)
-  eval_measures$mean_error &lt;- classifier_fold$details[&quot;meanAbsoluteError&quot;]
+  eval_measures$mean_error &lt;- classifier_fold$details[[&quot;meanAbsoluteError&quot;]]
   return(eval_measures)
+}
+
+getAverageStats &lt;- function(stats) {
+  acc &lt;- 0
+  err &lt;- 0
+  rec &lt;- 0
+  prec &lt;- 0
+  f &lt;- 0
+  mean_err &lt;- 0
+  for(stat in stats) {
+    acc &lt;- acc + stat[[&quot;accuracy&quot;]]
+    err &lt;- err + stat[[&quot;error&quot;]]
+    rec &lt;- rec + stat[[&quot;recall&quot;]]
+    prec &lt;- prec + stat[[&quot;precision&quot;]]
+    f &lt;- f + stat[[&quot;f_score&quot;]]
+    mean_err &lt;- mean_err + stat[[&quot;mean_error&quot;]]
+  }
+  n &lt;- length(stats)
+  acc &lt;- acc / n
+  err &lt;- err / n
+  rec &lt;- rec / n
+  prec &lt;- prec / n
+  f &lt;- f / n
+  mean_err &lt;- mean_err / n
+  average_stats &lt;- list(
+    accuracy = acc,
+    error = err,
+    recall = rec,
+    precision = prec,
+    f_score = f,
+    mean_error = mean_err
+  )
+  return(average_stats)
 }</code></pre>
 <p>Calculating evaluation measures to C4.5 decision tree.</p>
 <pre class="r"><code>predictions &lt;- as.vector(predict(c45_tree_classifier))
@@ -797,31 +830,36 @@ eval_measures</code></pre>
 ## $f_score
 ## [1] 0.9791667</code></pre>
 <p>Using 10-fold cross validation for C4.5 decision tree.</p>
-<pre class="r"><code>c45_tree_func &lt;- function(input_data, num_folds) {
-  c45_tree_classifier &lt;- J48(Class ~ ., data = input_data)
-  return(getStats(c45_tree_classifier, input_data$Class, num_folds))
+<pre class="r"><code>c45_tree_func &lt;- function(input_data, num_folds, num_times) {
+  stats &lt;- list()
+  seed &lt;- 0
+  for(i in 1:num_times) {
+    seed &lt;- i + 1
+    c45_tree_classifier &lt;- J48(Class ~ ., data = input_data)
+    stats[[i]] &lt;- getStats(c45_tree_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-c45_tree_eval_measures &lt;- c45_tree_func(sonar, 10)
+c45_tree_eval_measures &lt;- c45_tree_func(sonar, 10, 1)
 c45_tree_eval_measures</code></pre>
 <pre><code>## $accuracy
-## [1] 0.7115385
+## [1] 0.7644231
 ## 
 ## $error
-## [1] 0.2884615
+## [1] 0.2355769
 ## 
 ## $recall
-## [1] 0.6804124
+## [1] 0.7525773
 ## 
 ## $precision
-## [1] 0.6947368
+## [1] 0.744898
 ## 
 ## $f_score
-## [1] 0.6875
+## [1] 0.7487179
 ## 
 ## $mean_error
-## meanAbsoluteError 
-##         0.2936885</code></pre>
+## [1] 0.2426871</code></pre>
 <p>When using the 10-fold validation, the accuracy dropped to <code>71%</code>.</p>
 <p>It is evident that using a 10-fold validation produced lower results than using the normal decision tree but this is due to the fact that the normal decision tree has been trained and tested on the same data which results in over-fitting.</p>
 <p><strong>PART 3</strong></p>
@@ -829,176 +867,206 @@ c45_tree_eval_measures</code></pre>
 <ul>
 <li>Random Forest</li>
 </ul>
-<pre class="r"><code>random_forest_func &lt;- function(input_data, num_folds) {
-  RandomForest &lt;- make_Weka_classifier(&quot;weka/classifiers/trees/RandomForest&quot;)
-  random_forest_classifier &lt;- RandomForest(Class ~ ., data = input_data)
-  return(getStats(random_forest_classifier, input_data$Class, num_folds))
+<pre class="r"><code>random_forest_func &lt;- function(input_data, num_folds, num_times) {
+  stats &lt;- list()
+  seed &lt;- 0
+  for(i in 1:num_times) {
+    seed &lt;- i + 1
+    RandomForest &lt;- make_Weka_classifier(&quot;weka/classifiers/trees/RandomForest&quot;)
+    random_forest_classifier &lt;- RandomForest(Class ~ ., data = input_data)
+    stats[[i]] &lt;- getStats(random_forest_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-rf_eval_measures &lt;- random_forest_func(sonar, 10)
+rf_eval_measures &lt;- random_forest_func(sonar, 10, 1)
 rf_eval_measures</code></pre>
 <pre><code>## $accuracy
-## [1] 0.8461538
+## [1] 0.8076923
 ## 
 ## $error
-## [1] 0.1538462
+## [1] 0.1923077
 ## 
 ## $recall
-## [1] 0.7835052
+## [1] 0.742268
 ## 
 ## $precision
-## [1] 0.8735632
+## [1] 0.8275862
 ## 
 ## $f_score
-## [1] 0.826087
+## [1] 0.7826087
 ## 
 ## $mean_error
-## meanAbsoluteError 
-##         0.3051923</code></pre>
+## [1] 0.3243269</code></pre>
 <ul>
 <li>Support Vector Machines</li>
 </ul>
-<pre class="r"><code>svm_func &lt;- function(input_data, num_folds) {
-  svm_classifier &lt;- SMO(Class ~ ., data = input_data)
-  return(getStats(svm_classifier, input_data$Class, num_folds))
+<pre class="r"><code>svm_func &lt;- function(input_data, num_folds, num_times) {
+  stats &lt;- list()
+  seed &lt;- 0
+  for(i in 1:num_times) {
+    seed &lt;- i + 1
+    svm_classifier &lt;- SMO(Class ~ ., data = input_data)
+    stats[[i]] &lt;- getStats(svm_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-svm_eval_measures &lt;- svm_func(sonar, 10)
+svm_eval_measures &lt;- svm_func(sonar, 10, 1)
 svm_eval_measures</code></pre>
 <pre><code>## $accuracy
-## [1] 0.7644231
+## [1] 0.7211538
 ## 
 ## $error
-## [1] 0.2355769
+## [1] 0.2788462
 ## 
 ## $recall
-## [1] 0.7216495
+## [1] 0.6804124
 ## 
 ## $precision
-## [1] 0.7608696
+## [1] 0.7096774
 ## 
 ## $f_score
-## [1] 0.7407407
+## [1] 0.6947368
 ## 
 ## $mean_error
-## meanAbsoluteError 
-##         0.2355769</code></pre>
+## [1] 0.2788462</code></pre>
 <ul>
 <li>Naive Bayes</li>
 </ul>
-<pre class="r"><code>naive_bayes_func &lt;- function(input_data, num_folds) {
-  NaiveBayes &lt;- make_Weka_classifier(&quot;weka/classifiers/bayes/NaiveBayes&quot;)
-  naive_bayes_classifier &lt;- NaiveBayes(Class ~ ., data = input_data)
-  return(getStats(naive_bayes_classifier, input_data$Class, num_folds))
+<pre class="r"><code>naive_bayes_func &lt;- function(input_data, num_folds, num_times) {
+  stats &lt;- list()
+  seed &lt;- 0
+  for(i in 1:num_times) {
+    seed &lt;- i + 1
+    NaiveBayes &lt;- make_Weka_classifier(&quot;weka/classifiers/bayes/NaiveBayes&quot;)
+    naive_bayes_classifier &lt;- NaiveBayes(Class ~ ., data = input_data)
+    stats[[i]] &lt;- getStats(naive_bayes_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-nb_eval_measures &lt;- naive_bayes_func(sonar, 10)
+nb_eval_measures &lt;- naive_bayes_func(sonar, 10, 1)
 nb_eval_measures</code></pre>
 <pre><code>## $accuracy
-## [1] 0.6923077
+## [1] 0.6682692
 ## 
 ## $error
-## [1] 0.3076923
-## 
-## $recall
-## [1] 0.8247423
-## 
-## $precision
-## [1] 0.6299213
-## 
-## $f_score
-## [1] 0.7142857
-## 
-## $mean_error
-## meanAbsoluteError 
-##         0.3119991</code></pre>
-<ul>
-<li>Neural Networks</li>
-</ul>
-<pre class="r"><code>neural_networks_func &lt;- function(input_data, num_folds) {
-  NeuralNetworks &lt;- make_Weka_classifier(&quot;weka/classifiers/functions/MultilayerPerceptron&quot;)
-  neural_networks_classifier &lt;- NeuralNetworks(Class ~ ., data = input_data, control = Weka_control(N = 10))
-  return(getStats(neural_networks_classifier, input_data$Class, num_folds))
-}
-
-nn_eval_measures &lt;- neural_networks_func(sonar, 10)
-nn_eval_measures</code></pre>
-<pre><code>## $accuracy
-## [1] 0.7980769
-## 
-## $error
-## [1] 0.2019231
+## [1] 0.3317308
 ## 
 ## $recall
 ## [1] 0.8041237
 ## 
 ## $precision
-## [1] 0.7722772
+## [1] 0.609375
 ## 
 ## $f_score
-## [1] 0.7878788
+## [1] 0.6933333
 ## 
 ## $mean_error
-## meanAbsoluteError 
-##         0.2667461</code></pre>
+## [1] 0.3348285</code></pre>
+<ul>
+<li>Neural Networks (with 10 epochs)</li>
+</ul>
+<pre class="r"><code>neural_networks_func &lt;- function(input_data, num_folds, num_times) {
+  stats &lt;- list()
+  seed &lt;- 0
+  for(i in 1:num_times) {
+    seed &lt;- i + 1
+    NeuralNetworks &lt;- make_Weka_classifier(&quot;weka/classifiers/functions/MultilayerPerceptron&quot;)
+    neural_networks_classifier &lt;- NeuralNetworks(Class ~ ., data = input_data, control = Weka_control(N = 10))
+    stats[[i]] &lt;- getStats(neural_networks_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
+}
+
+nn_eval_measures &lt;- neural_networks_func(sonar, 10, 1)
+nn_eval_measures</code></pre>
+<pre><code>## $accuracy
+## [1] 0.7596154
+## 
+## $error
+## [1] 0.2403846
+## 
+## $recall
+## [1] 0.7010309
+## 
+## $precision
+## [1] 0.7640449
+## 
+## $f_score
+## [1] 0.7311828
+## 
+## $mean_error
+## [1] 0.30509</code></pre>
 <ul>
 <li>Bagging</li>
 </ul>
-<pre class="r"><code>bagging_func &lt;- function(input_data, num_folds) {
-  Bagging &lt;- make_Weka_classifier(&quot;weka/classifiers/meta/Bagging&quot;)
-  bagging_classifier &lt;- Bagging(Class ~ ., data = input_data, control = Weka_control(W = J48))
-  return(getStats(bagging_classifier, input_data$Class, num_folds))
+<pre class="r"><code>bagging_func &lt;- function(input_data, num_folds, num_times) {
+  stats &lt;- list()
+  seed &lt;- 0
+  for(i in 1:num_times) {
+    seed &lt;- i + 1
+    Bagging &lt;- make_Weka_classifier(&quot;weka/classifiers/meta/Bagging&quot;)
+    bagging_classifier &lt;- Bagging(Class ~ ., data = input_data, control = Weka_control(W = J48))
+    stats[[i]] &lt;- getStats(bagging_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-bagging_eval_measures &lt;- bagging_func(sonar, 10)
+bagging_eval_measures &lt;- bagging_func(sonar, 10, 1)
 bagging_eval_measures</code></pre>
 <pre><code>## $accuracy
-## [1] 0.7644231
+## [1] 0.7740385
 ## 
 ## $error
-## [1] 0.2355769
+## [1] 0.2259615
 ## 
 ## $recall
 ## [1] 0.7113402
 ## 
 ## $precision
-## [1] 0.7666667
+## [1] 0.7840909
 ## 
 ## $f_score
-## [1] 0.7379679
+## [1] 0.7459459
 ## 
 ## $mean_error
-## meanAbsoluteError 
-##         0.3138583</code></pre>
+## [1] 0.3058081</code></pre>
 <ul>
 <li>Boosting</li>
 </ul>
-<pre class="r"><code>boosting_func &lt;- function(input_data, num_folds) {
-  Boosting &lt;- make_Weka_classifier(&quot;weka/classifiers/meta/AdaBoostM1&quot;)
-  boosting_classifier &lt;- Boosting(Class ~ ., data = input_data, control = Weka_control(W = J48))
-  return(getStats(boosting_classifier, input_data$Class, num_folds))
+<pre class="r"><code>boosting_func &lt;- function(input_data, num_folds, num_times) {
+  stats &lt;- list()
+  seed &lt;- 0
+  for(i in 1:num_times) {
+    seed &lt;- i + 1
+    Boosting &lt;- make_Weka_classifier(&quot;weka/classifiers/meta/AdaBoostM1&quot;)
+    boosting_classifier &lt;- Boosting(Class ~ ., data = input_data, control = Weka_control(W = J48))
+    stats[[i]] &lt;- getStats(boosting_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-boosting_eval_measures &lt;- boosting_func(sonar, 10)
+boosting_eval_measures &lt;- boosting_func(sonar, 10, 1)
 boosting_eval_measures</code></pre>
 <pre><code>## $accuracy
-## [1] 0.7836538
+## [1] 0.8413462
 ## 
 ## $error
-## [1] 0.2163462
+## [1] 0.1586538
 ## 
 ## $recall
-## [1] 0.7628866
+## [1] 0.8247423
 ## 
 ## $precision
-## [1] 0.7708333
+## [1] 0.8333333
 ## 
 ## $f_score
-## [1] 0.7668394
+## [1] 0.8290155
 ## 
 ## $mean_error
-## meanAbsoluteError 
-##         0.2163678</code></pre>
+## [1] 0.175082</code></pre>
 <p>Combining all evaluation measures into 1 table.</p>
 <pre class="r"><code>all_eval_measures &lt;- data.frame(
   Measure=c(&quot;accuracy&quot;, &quot;mean_error&quot;, &quot;recall&quot;, &quot;precision&quot;, &quot;f_score&quot;),
@@ -1028,53 +1096,53 @@ formattable(all_eval_measures, list())</code></pre>
 <tbody>
 <tr class="odd">
 <td align="right">accuracy</td>
-<td align="right">0.7115385</td>
-<td align="right">0.8461538</td>
 <td align="right">0.7644231</td>
-<td align="right">0.6923077</td>
-<td align="right">0.7980769</td>
-<td align="right">0.7644231</td>
-<td align="right">0.7836538</td>
+<td align="right">0.8076923</td>
+<td align="right">0.7211538</td>
+<td align="right">0.6682692</td>
+<td align="right">0.7596154</td>
+<td align="right">0.7740385</td>
+<td align="right">0.8413462</td>
 </tr>
 <tr class="even">
 <td align="right">mean_error</td>
-<td align="right">0.2936885</td>
-<td align="right">0.3051923</td>
-<td align="right">0.2355769</td>
-<td align="right">0.3119991</td>
-<td align="right">0.2667461</td>
-<td align="right">0.3138583</td>
-<td align="right">0.2163678</td>
+<td align="right">0.2426871</td>
+<td align="right">0.3243269</td>
+<td align="right">0.2788462</td>
+<td align="right">0.3348285</td>
+<td align="right">0.3050900</td>
+<td align="right">0.3058081</td>
+<td align="right">0.1750820</td>
 </tr>
 <tr class="odd">
 <td align="right">recall</td>
+<td align="right">0.7525773</td>
+<td align="right">0.7422680</td>
 <td align="right">0.6804124</td>
-<td align="right">0.7835052</td>
-<td align="right">0.7216495</td>
-<td align="right">0.8247423</td>
 <td align="right">0.8041237</td>
+<td align="right">0.7010309</td>
 <td align="right">0.7113402</td>
-<td align="right">0.7628866</td>
+<td align="right">0.8247423</td>
 </tr>
 <tr class="even">
 <td align="right">precision</td>
-<td align="right">0.6947368</td>
-<td align="right">0.8735632</td>
-<td align="right">0.7608696</td>
-<td align="right">0.6299213</td>
-<td align="right">0.7722772</td>
-<td align="right">0.7666667</td>
-<td align="right">0.7708333</td>
+<td align="right">0.7448980</td>
+<td align="right">0.8275862</td>
+<td align="right">0.7096774</td>
+<td align="right">0.6093750</td>
+<td align="right">0.7640449</td>
+<td align="right">0.7840909</td>
+<td align="right">0.8333333</td>
 </tr>
 <tr class="odd">
 <td align="right">f_score</td>
-<td align="right">0.6875000</td>
-<td align="right">0.8260870</td>
-<td align="right">0.7407407</td>
-<td align="right">0.7142857</td>
-<td align="right">0.7878788</td>
-<td align="right">0.7379679</td>
-<td align="right">0.7668394</td>
+<td align="right">0.7487179</td>
+<td align="right">0.7826087</td>
+<td align="right">0.6947368</td>
+<td align="right">0.6933333</td>
+<td align="right">0.7311828</td>
+<td align="right">0.7459459</td>
+<td align="right">0.8290155</td>
 </tr>
 </tbody>
 </table>
@@ -1101,55 +1169,63 @@ spectf_test = read.csv(&quot;data/SPECTF.test&quot;, header=FALSE)
 spectf &lt;- rbind(spectf_train, spectf_test)
 names(spectf)[names(spectf) == 'V1'] &lt;- 'Class'
 spectf$Class &lt;- as.factor(spectf$Class)</code></pre>
-<p>Testing multiple algorithms on multiple datasets.</p>
-<pre class="r"><code>hepatitis_c45_tree_eval_measures &lt;- c45_tree_func(hepatitis, 10)
-hepatitis_rf_eval_measures &lt;- random_forest_func(hepatitis, 10)
-hepatitis_svm_eval_measures &lt;- svm_func(hepatitis, 10)
-hepatitis_nb_eval_measures &lt;- naive_bayes_func(hepatitis, 10)
-hepatitis_nn_eval_measures &lt;- neural_networks_func(hepatitis, 10)
-hepatitis_bagging_eval_measures &lt;- bagging_func(hepatitis, 10)
-hepatitis_boosting_eval_measures &lt;- boosting_func(hepatitis, 10)
+<p>Testing multiple algorithms on multiple datasets using 10 times 10-fold validation.</p>
+<pre class="r"><code>sonar_c45_tree_eval_measures &lt;- c45_tree_func(sonar, 10, 10)
+sonar_rf_eval_measures &lt;- random_forest_func(sonar, 10, 10)
+sonar_svm_eval_measures &lt;- svm_func(sonar, 10, 10)
+sonar_nb_eval_measures &lt;- naive_bayes_func(sonar, 10, 10)
+sonar_nn_eval_measures &lt;- neural_networks_func(sonar, 10, 10)
+sonar_bagging_eval_measures &lt;- bagging_func(sonar, 10, 10)
+sonar_boosting_eval_measures &lt;- boosting_func(sonar, 10, 10)
 
-pima_c45_tree_eval_measures &lt;- c45_tree_func(pima, 10)
-pima_rf_eval_measures &lt;- random_forest_func(pima, 10)
-pima_svm_eval_measures &lt;- svm_func(pima, 10)
-pima_nb_eval_measures &lt;- naive_bayes_func(pima, 10)
-pima_nn_eval_measures &lt;- neural_networks_func(pima, 10)
-pima_bagging_eval_measures &lt;- bagging_func(pima, 10)
-pima_boosting_eval_measures &lt;- boosting_func(pima, 10)
+hepatitis_c45_tree_eval_measures &lt;- c45_tree_func(hepatitis, 10, 10)
+hepatitis_rf_eval_measures &lt;- random_forest_func(hepatitis, 10, 10)
+hepatitis_svm_eval_measures &lt;- svm_func(hepatitis, 10, 10)
+hepatitis_nb_eval_measures &lt;- naive_bayes_func(hepatitis, 10, 10)
+hepatitis_nn_eval_measures &lt;- neural_networks_func(hepatitis, 10, 10)
+hepatitis_bagging_eval_measures &lt;- bagging_func(hepatitis, 10, 10)
+hepatitis_boosting_eval_measures &lt;- boosting_func(hepatitis, 10, 10)
 
-spect_c45_tree_eval_measures &lt;- c45_tree_func(spect, 10)
-spect_rf_eval_measures &lt;- random_forest_func(spect, 10)
-spect_svm_eval_measures &lt;- svm_func(spect, 10)
-spect_nb_eval_measures &lt;- naive_bayes_func(spect, 10)
-spect_nn_eval_measures &lt;- neural_networks_func(spect, 10)
-spect_bagging_eval_measures &lt;- bagging_func(spect, 10)
-spect_boosting_eval_measures &lt;- boosting_func(spect, 10)
+pima_c45_tree_eval_measures &lt;- c45_tree_func(pima, 10, 10)
+pima_rf_eval_measures &lt;- random_forest_func(pima, 10, 10)
+pima_svm_eval_measures &lt;- svm_func(pima, 10, 10)
+pima_nb_eval_measures &lt;- naive_bayes_func(pima, 10, 10)
+pima_nn_eval_measures &lt;- neural_networks_func(pima, 10, 10)
+pima_bagging_eval_measures &lt;- bagging_func(pima, 10, 10)
+pima_boosting_eval_measures &lt;- boosting_func(pima, 10, 10)
 
-spectf_c45_tree_eval_measures &lt;- c45_tree_func(spectf, 10)
-spectf_rf_eval_measures &lt;- random_forest_func(spectf, 10)
-spectf_svm_eval_measures &lt;- svm_func(spectf, 10)
-spectf_nb_eval_measures &lt;- naive_bayes_func(spectf, 10)
-spectf_nn_eval_measures &lt;- neural_networks_func(spectf, 10)
-spectf_bagging_eval_measures &lt;- bagging_func(spectf, 10)
-spectf_boosting_eval_measures &lt;- boosting_func(spectf, 10)</code></pre>
+spect_c45_tree_eval_measures &lt;- c45_tree_func(spect, 10, 10)
+spect_rf_eval_measures &lt;- random_forest_func(spect, 10, 10)
+spect_svm_eval_measures &lt;- svm_func(spect, 10, 10)
+spect_nb_eval_measures &lt;- naive_bayes_func(spect, 10, 10)
+spect_nn_eval_measures &lt;- neural_networks_func(spect, 10, 10)
+spect_bagging_eval_measures &lt;- bagging_func(spect, 10, 10)
+spect_boosting_eval_measures &lt;- boosting_func(spect, 10, 10)
+
+spectf_c45_tree_eval_measures &lt;- c45_tree_func(spectf, 10, 10)
+spectf_rf_eval_measures &lt;- random_forest_func(spectf, 10, 10)
+spectf_svm_eval_measures &lt;- svm_func(spectf, 10, 10)
+spectf_nb_eval_measures &lt;- naive_bayes_func(spectf, 10, 10)
+spectf_nn_eval_measures &lt;- neural_networks_func(spectf, 10, 10)
+spectf_bagging_eval_measures &lt;- bagging_func(spectf, 10, 10)
+spectf_boosting_eval_measures &lt;- boosting_func(spectf, 10, 10)</code></pre>
 <p>Presenting the results in a table.</p>
 <pre class="r"><code>getMeasure &lt;- function(measure_name) {
   Measure &lt;- c(&quot;Sonar&quot;, &quot;Hepatitis&quot;, &quot;Pima-Indian Diabetes&quot;, &quot;SPECT&quot;, &quot;SPECTF&quot;)
   
-  C4.5_Decision_Tree &lt;- c(c45_tree_eval_measures[[measure_name]], hepatitis_c45_tree_eval_measures[[measure_name]], pima_c45_tree_eval_measures[[measure_name]], spect_c45_tree_eval_measures[[measure_name]], spectf_c45_tree_eval_measures[[measure_name]])
+  C4.5_Decision_Tree &lt;- c(sonar_c45_tree_eval_measures[[measure_name]], hepatitis_c45_tree_eval_measures[[measure_name]], pima_c45_tree_eval_measures[[measure_name]], spect_c45_tree_eval_measures[[measure_name]], spectf_c45_tree_eval_measures[[measure_name]])
 
-  Random_Forest &lt;- c(rf_eval_measures[[measure_name]], hepatitis_rf_eval_measures[[measure_name]], pima_rf_eval_measures[[measure_name]], spect_rf_eval_measures[[measure_name]], spectf_rf_eval_measures[[measure_name]])
+  Random_Forest &lt;- c(sonar_rf_eval_measures[[measure_name]], hepatitis_rf_eval_measures[[measure_name]], pima_rf_eval_measures[[measure_name]], spect_rf_eval_measures[[measure_name]], spectf_rf_eval_measures[[measure_name]])
   
-  SVM &lt;- c(svm_eval_measures[[measure_name]], hepatitis_svm_eval_measures[[measure_name]], pima_svm_eval_measures[[measure_name]], spect_svm_eval_measures[[measure_name]], spectf_svm_eval_measures[[measure_name]])
+  SVM &lt;- c(sonar_svm_eval_measures[[measure_name]], hepatitis_svm_eval_measures[[measure_name]], pima_svm_eval_measures[[measure_name]], spect_svm_eval_measures[[measure_name]], spectf_svm_eval_measures[[measure_name]])
   
-  Naive_Bayes &lt;- c(nb_eval_measures[[measure_name]], hepatitis_nb_eval_measures[[measure_name]], pima_nb_eval_measures[[measure_name]], spect_nb_eval_measures[[measure_name]], spectf_nb_eval_measures[[measure_name]])
+  Naive_Bayes &lt;- c(sonar_nb_eval_measures[[measure_name]], hepatitis_nb_eval_measures[[measure_name]], pima_nb_eval_measures[[measure_name]], spect_nb_eval_measures[[measure_name]], spectf_nb_eval_measures[[measure_name]])
   
-  Neural_Networks &lt;- c(nn_eval_measures[[measure_name]], hepatitis_nn_eval_measures[[measure_name]], pima_nn_eval_measures[[measure_name]], spect_nn_eval_measures[[measure_name]], spectf_nn_eval_measures[[measure_name]])
+  Neural_Networks &lt;- c(sonar_nn_eval_measures[[measure_name]], hepatitis_nn_eval_measures[[measure_name]], pima_nn_eval_measures[[measure_name]], spect_nn_eval_measures[[measure_name]], spectf_nn_eval_measures[[measure_name]])
   
-  Bagging &lt;- c(bagging_eval_measures[[measure_name]], hepatitis_bagging_eval_measures[[measure_name]], pima_bagging_eval_measures[[measure_name]], spect_bagging_eval_measures[[measure_name]], spectf_bagging_eval_measures[[measure_name]])
+  Bagging &lt;- c(sonar_bagging_eval_measures[[measure_name]], hepatitis_bagging_eval_measures[[measure_name]], pima_bagging_eval_measures[[measure_name]], spect_bagging_eval_measures[[measure_name]], spectf_bagging_eval_measures[[measure_name]])
   
-  Boosting &lt;- c(boosting_eval_measures[[measure_name]], hepatitis_boosting_eval_measures[[measure_name]], pima_boosting_eval_measures[[measure_name]], spect_boosting_eval_measures[[measure_name]], spectf_boosting_eval_measures[[measure_name]])
+  Boosting &lt;- c(sonar_boosting_eval_measures[[measure_name]], hepatitis_boosting_eval_measures[[measure_name]], pima_boosting_eval_measures[[measure_name]], spect_boosting_eval_measures[[measure_name]], spectf_boosting_eval_measures[[measure_name]])
   
   measure &lt;- data.frame(Measure, C4.5_Decision_Tree, Random_Forest, SVM, Naive_Bayes, Neural_Networks, Bagging, Boosting)
   return(measure)
@@ -1175,53 +1251,53 @@ formattable(accuracy_comparison, list())</code></pre>
 <tbody>
 <tr class="odd">
 <td align="right">Sonar</td>
-<td align="right">0.7115385</td>
-<td align="right">0.8461538</td>
-<td align="right">0.7644231</td>
-<td align="right">0.6923077</td>
-<td align="right">0.7980769</td>
-<td align="right">0.7644231</td>
-<td align="right">0.7836538</td>
+<td align="right">0.7394231</td>
+<td align="right">0.8418269</td>
+<td align="right">0.7692308</td>
+<td align="right">0.6764423</td>
+<td align="right">0.7822115</td>
+<td align="right">0.7793269</td>
+<td align="right">0.7975962</td>
 </tr>
 <tr class="even">
 <td align="right">Hepatitis</td>
-<td align="right">0.8129032</td>
-<td align="right">0.8129032</td>
-<td align="right">0.8064516</td>
-<td align="right">0.8193548</td>
-<td align="right">0.8129032</td>
-<td align="right">0.8129032</td>
-<td align="right">0.7548387</td>
+<td align="right">0.8322581</td>
+<td align="right">0.7987097</td>
+<td align="right">0.8051613</td>
+<td align="right">0.8245161</td>
+<td align="right">0.8148387</td>
+<td align="right">0.8167742</td>
+<td align="right">0.7412903</td>
 </tr>
 <tr class="odd">
 <td align="right">Pima-Indian Diabetes</td>
-<td align="right">0.7460938</td>
-<td align="right">0.7630208</td>
-<td align="right">0.7695312</td>
-<td align="right">0.7513021</td>
-<td align="right">0.7591146</td>
-<td align="right">0.7473958</td>
-<td align="right">0.7213542</td>
+<td align="right">0.7444010</td>
+<td align="right">0.7595052</td>
+<td align="right">0.7673177</td>
+<td align="right">0.7566406</td>
+<td align="right">0.7601562</td>
+<td align="right">0.7483073</td>
+<td align="right">0.7160156</td>
 </tr>
 <tr class="even">
 <td align="right">SPECT</td>
-<td align="right">0.8052434</td>
-<td align="right">0.8277154</td>
-<td align="right">0.8052434</td>
-<td align="right">0.7677903</td>
-<td align="right">0.8052434</td>
-<td align="right">0.8314607</td>
-<td align="right">0.8277154</td>
+<td align="right">0.8176030</td>
+<td align="right">0.8220974</td>
+<td align="right">0.8389513</td>
+<td align="right">0.7610487</td>
+<td align="right">0.8209738</td>
+<td align="right">0.8307116</td>
+<td align="right">0.8119850</td>
 </tr>
 <tr class="odd">
 <td align="right">SPECTF</td>
-<td align="right">0.7340824</td>
-<td align="right">0.7977528</td>
-<td align="right">0.7940075</td>
-<td align="right">0.6853933</td>
-<td align="right">0.7977528</td>
-<td align="right">0.8164794</td>
-<td align="right">0.7940075</td>
+<td align="right">0.7599251</td>
+<td align="right">0.8127341</td>
+<td align="right">0.7943820</td>
+<td align="right">0.6820225</td>
+<td align="right">0.7928839</td>
+<td align="right">0.8052434</td>
+<td align="right">0.7921348</td>
 </tr>
 </tbody>
 </table>
@@ -1246,53 +1322,53 @@ formattable(recall_comparison, list())</code></pre>
 <tbody>
 <tr class="odd">
 <td align="right">Sonar</td>
-<td align="right">0.6804124</td>
-<td align="right">0.7835052</td>
-<td align="right">0.7216495</td>
-<td align="right">0.8247423</td>
-<td align="right">0.8041237</td>
-<td align="right">0.7113402</td>
-<td align="right">0.7628866</td>
+<td align="right">0.7195876</td>
+<td align="right">0.7680412</td>
+<td align="right">0.7381443</td>
+<td align="right">0.8020619</td>
+<td align="right">0.7618557</td>
+<td align="right">0.7103093</td>
+<td align="right">0.7618557</td>
 </tr>
 <tr class="even">
 <td align="right">Hepatitis</td>
-<td align="right">0.9268293</td>
-<td align="right">1.0000000</td>
-<td align="right">0.8780488</td>
-<td align="right">0.8455285</td>
-<td align="right">0.9349593</td>
-<td align="right">0.9349593</td>
-<td align="right">0.8536585</td>
+<td align="right">0.9365854</td>
+<td align="right">0.9894309</td>
+<td align="right">0.8788618</td>
+<td align="right">0.8552846</td>
+<td align="right">0.9040650</td>
+<td align="right">0.9471545</td>
+<td align="right">0.8243902</td>
 </tr>
 <tr class="odd">
 <td align="right">Pima-Indian Diabetes</td>
-<td align="right">0.5858209</td>
-<td align="right">0.6231343</td>
-<td align="right">0.5223881</td>
 <td align="right">0.6007463</td>
-<td align="right">0.6529851</td>
-<td align="right">0.5858209</td>
-<td align="right">0.5783582</td>
+<td align="right">0.5981343</td>
+<td align="right">0.5309701</td>
+<td align="right">0.5996269</td>
+<td align="right">0.6089552</td>
+<td align="right">0.5944030</td>
+<td align="right">0.5705224</td>
 </tr>
 <tr class="even">
 <td align="right">SPECT</td>
-<td align="right">0.8915094</td>
-<td align="right">0.9056604</td>
-<td align="right">0.8962264</td>
-<td align="right">0.7688679</td>
-<td align="right">0.8915094</td>
-<td align="right">0.9103774</td>
-<td align="right">0.9056604</td>
+<td align="right">0.9066038</td>
+<td align="right">0.9136792</td>
+<td align="right">0.9165094</td>
+<td align="right">0.7632075</td>
+<td align="right">0.9094340</td>
+<td align="right">0.9297170</td>
+<td align="right">0.8910377</td>
 </tr>
 <tr class="odd">
 <td align="right">SPECTF</td>
-<td align="right">0.8301887</td>
-<td align="right">0.9433962</td>
+<td align="right">0.8542453</td>
+<td align="right">0.9504717</td>
 <td align="right">1.0000000</td>
-<td align="right">0.6273585</td>
-<td align="right">1.0000000</td>
-<td align="right">0.9339623</td>
-<td align="right">0.9009434</td>
+<td align="right">0.6245283</td>
+<td align="right">0.9877358</td>
+<td align="right">0.9297170</td>
+<td align="right">0.8929245</td>
 </tr>
 </tbody>
 </table>
@@ -1317,53 +1393,53 @@ formattable(precision_comparison, list())</code></pre>
 <tbody>
 <tr class="odd">
 <td align="right">Sonar</td>
-<td align="right">0.6947368</td>
-<td align="right">0.8735632</td>
-<td align="right">0.7608696</td>
-<td align="right">0.6299213</td>
-<td align="right">0.7722772</td>
-<td align="right">0.7666667</td>
-<td align="right">0.7708333</td>
+<td align="right">0.7220536</td>
+<td align="right">0.8776189</td>
+<td align="right">0.7602977</td>
+<td align="right">0.6179937</td>
+<td align="right">0.7700295</td>
+<td align="right">0.7954030</td>
+<td align="right">0.7962103</td>
 </tr>
 <tr class="even">
 <td align="right">Hepatitis</td>
-<td align="right">0.8507463</td>
-<td align="right">0.8092105</td>
-<td align="right">0.8780488</td>
-<td align="right">0.9203540</td>
-<td align="right">0.8455882</td>
-<td align="right">0.8455882</td>
-<td align="right">0.8400000</td>
+<td align="right">0.8635644</td>
+<td align="right">0.8027885</td>
+<td align="right">0.8760762</td>
+<td align="right">0.9180469</td>
+<td align="right">0.8684702</td>
+<td align="right">0.8419998</td>
+<td align="right">0.8458929</td>
 </tr>
 <tr class="odd">
 <td align="right">Pima-Indian Diabetes</td>
-<td align="right">0.6514523</td>
-<td align="right">0.6733871</td>
-<td align="right">0.7407407</td>
-<td align="right">0.6571429</td>
-<td align="right">0.6554307</td>
-<td align="right">0.6541667</td>
-<td align="right">0.6054688</td>
+<td align="right">0.6439328</td>
+<td align="right">0.6756211</td>
+<td align="right">0.7286284</td>
+<td align="right">0.6687554</td>
+<td align="right">0.6745982</td>
+<td align="right">0.6532728</td>
+<td align="right">0.5976796</td>
 </tr>
 <tr class="even">
 <td align="right">SPECT</td>
-<td align="right">0.8669725</td>
-<td align="right">0.8807339</td>
-<td align="right">0.8636364</td>
-<td align="right">0.9261364</td>
-<td align="right">0.8669725</td>
-<td align="right">0.8812785</td>
-<td align="right">0.8807339</td>
+<td align="right">0.8692648</td>
+<td align="right">0.8690181</td>
+<td align="right">0.8849571</td>
+<td align="right">0.9224880</td>
+<td align="right">0.8710244</td>
+<td align="right">0.8667892</td>
+<td align="right">0.8746359</td>
 </tr>
 <tr class="odd">
 <td align="right">SPECTF</td>
-<td align="right">0.8341232</td>
-<td align="right">0.8264463</td>
-<td align="right">0.7940075</td>
-<td align="right">0.9637681</td>
-<td align="right">0.7969925</td>
-<td align="right">0.8497854</td>
-<td align="right">0.8488889</td>
+<td align="right">0.8452742</td>
+<td align="right">0.8361272</td>
+<td align="right">0.7943060</td>
+<td align="right">0.9615286</td>
+<td align="right">0.7989754</td>
+<td align="right">0.8416349</td>
+<td align="right">0.8524365</td>
 </tr>
 </tbody>
 </table>
@@ -1388,53 +1464,53 @@ formattable(f_score_comparison, list())</code></pre>
 <tbody>
 <tr class="odd">
 <td align="right">Sonar</td>
-<td align="right">0.6875000</td>
-<td align="right">0.8260870</td>
-<td align="right">0.7407407</td>
-<td align="right">0.7142857</td>
-<td align="right">0.7878788</td>
-<td align="right">0.7379679</td>
-<td align="right">0.7668394</td>
+<td align="right">0.7201531</td>
+<td align="right">0.8190062</td>
+<td align="right">0.7489448</td>
+<td align="right">0.6980602</td>
+<td align="right">0.7650619</td>
+<td align="right">0.7499645</td>
+<td align="right">0.7784475</td>
 </tr>
 <tr class="even">
 <td align="right">Hepatitis</td>
-<td align="right">0.8871595</td>
-<td align="right">0.8945455</td>
-<td align="right">0.8780488</td>
-<td align="right">0.8813559</td>
-<td align="right">0.8880309</td>
-<td align="right">0.8880309</td>
-<td align="right">0.8467742</td>
+<td align="right">0.8985858</td>
+<td align="right">0.8863794</td>
+<td align="right">0.8774286</td>
+<td align="right">0.8855109</td>
+<td align="right">0.8854513</td>
+<td align="right">0.8913992</td>
+<td align="right">0.8348381</td>
 </tr>
 <tr class="odd">
 <td align="right">Pima-Indian Diabetes</td>
-<td align="right">0.6168959</td>
-<td align="right">0.6472868</td>
-<td align="right">0.6126915</td>
-<td align="right">0.6276803</td>
-<td align="right">0.6542056</td>
-<td align="right">0.6181102</td>
-<td align="right">0.5916031</td>
+<td align="right">0.6210290</td>
+<td align="right">0.6344971</td>
+<td align="right">0.6142766</td>
+<td align="right">0.6322985</td>
+<td align="right">0.6390968</td>
+<td align="right">0.6223184</td>
+<td align="right">0.5837530</td>
 </tr>
 <tr class="even">
 <td align="right">SPECT</td>
-<td align="right">0.8790698</td>
-<td align="right">0.8930233</td>
-<td align="right">0.8796296</td>
-<td align="right">0.8402062</td>
-<td align="right">0.8790698</td>
-<td align="right">0.8955916</td>
-<td align="right">0.8930233</td>
+<td align="right">0.8875196</td>
+<td align="right">0.8907656</td>
+<td align="right">0.9003741</td>
+<td align="right">0.8352904</td>
+<td align="right">0.8896868</td>
+<td align="right">0.8971177</td>
+<td align="right">0.8826962</td>
 </tr>
 <tr class="odd">
 <td align="right">SPECTF</td>
-<td align="right">0.8321513</td>
-<td align="right">0.8810573</td>
-<td align="right">0.8851775</td>
-<td align="right">0.7600000</td>
-<td align="right">0.8870293</td>
-<td align="right">0.8898876</td>
-<td align="right">0.8741419</td>
+<td align="right">0.8496166</td>
+<td align="right">0.8896267</td>
+<td align="right">0.8853626</td>
+<td align="right">0.7571919</td>
+<td align="right">0.8833505</td>
+<td align="right">0.8834666</td>
+<td align="right">0.8720673</td>
 </tr>
 </tbody>
 </table>
@@ -1459,53 +1535,53 @@ formattable(mean_error_comparison, list())</code></pre>
 <tbody>
 <tr class="odd">
 <td align="right">Sonar</td>
-<td align="right">0.2936885</td>
-<td align="right">0.3051923</td>
-<td align="right">0.2355769</td>
-<td align="right">0.3119991</td>
-<td align="right">0.2667461</td>
-<td align="right">0.3138583</td>
-<td align="right">0.2163678</td>
+<td align="right">0.2642529</td>
+<td align="right">0.3083365</td>
+<td align="right">0.2307692</td>
+<td align="right">0.3211696</td>
+<td align="right">0.2790167</td>
+<td align="right">0.3021478</td>
+<td align="right">0.2032217</td>
 </tr>
 <tr class="even">
 <td align="right">Hepatitis</td>
-<td align="right">0.2777014</td>
-<td align="right">0.2821060</td>
-<td align="right">0.1935484</td>
-<td align="right">0.1818596</td>
-<td align="right">0.2204958</td>
-<td align="right">0.2620383</td>
-<td align="right">0.2570776</td>
+<td align="right">0.2646422</td>
+<td align="right">0.2849684</td>
+<td align="right">0.1948387</td>
+<td align="right">0.1750414</td>
+<td align="right">0.2243965</td>
+<td align="right">0.2677219</td>
+<td align="right">0.2649287</td>
 </tr>
 <tr class="odd">
 <td align="right">Pima-Indian Diabetes</td>
-<td align="right">0.3019827</td>
-<td align="right">0.3085937</td>
-<td align="right">0.2304688</td>
-<td align="right">0.2902672</td>
-<td align="right">0.3225822</td>
-<td align="right">0.3055382</td>
-<td align="right">0.2815530</td>
+<td align="right">0.3088172</td>
+<td align="right">0.3083281</td>
+<td align="right">0.2326823</td>
+<td align="right">0.2885125</td>
+<td align="right">0.3171277</td>
+<td align="right">0.3049924</td>
+<td align="right">0.2814514</td>
 </tr>
 <tr class="even">
 <td align="right">SPECT</td>
-<td align="right">0.2398144</td>
-<td align="right">0.2385115</td>
-<td align="right">0.1947566</td>
-<td align="right">0.2487470</td>
-<td align="right">0.2456162</td>
-<td align="right">0.2377885</td>
-<td align="right">0.2015198</td>
+<td align="right">0.2359519</td>
+<td align="right">0.2401688</td>
+<td align="right">0.1610487</td>
+<td align="right">0.2478154</td>
+<td align="right">0.2403215</td>
+<td align="right">0.2368169</td>
+<td align="right">0.2057869</td>
 </tr>
 <tr class="odd">
 <td align="right">SPECTF</td>
-<td align="right">0.2638354</td>
-<td align="right">0.2614981</td>
-<td align="right">0.2059925</td>
-<td align="right">0.3138424</td>
-<td align="right">0.2898525</td>
-<td align="right">0.2444405</td>
-<td align="right">0.2030734</td>
+<td align="right">0.2451942</td>
+<td align="right">0.2574457</td>
+<td align="right">0.2056180</td>
+<td align="right">0.3159439</td>
+<td align="right">0.2799713</td>
+<td align="right">0.2474852</td>
+<td align="right">0.2072631</td>
 </tr>
 </tbody>
 </table>
@@ -1564,19 +1640,19 @@ formattable(accuracy_frame, list())</code></pre>
 <tbody>
 <tr class="odd">
 <td align="right">C4.5_Decision_Tree</td>
-<td align="right">0</td>
+<td align="right">1</td>
 </tr>
 <tr class="even">
 <td align="right">Random_Forest</td>
-<td align="right">3</td>
+<td align="right">2</td>
 </tr>
 <tr class="odd">
 <td align="right">SVM</td>
-<td align="right">2</td>
+<td align="right">3</td>
 </tr>
 <tr class="even">
 <td align="right">Naive_Bayes</td>
-<td align="right">2</td>
+<td align="right">1</td>
 </tr>
 <tr class="odd">
 <td align="right">Neural_Networks</td>
@@ -1611,7 +1687,7 @@ formattable(recall_frame, list())</code></pre>
 </tr>
 <tr class="even">
 <td align="right">Random_Forest</td>
-<td align="right">2</td>
+<td align="right">1</td>
 </tr>
 <tr class="odd">
 <td align="right">SVM</td>
@@ -1627,7 +1703,7 @@ formattable(recall_frame, list())</code></pre>
 </tr>
 <tr class="even">
 <td align="right">Bagging</td>
-<td align="right">4</td>
+<td align="right">5</td>
 </tr>
 <tr class="odd">
 <td align="right">Boosting</td>

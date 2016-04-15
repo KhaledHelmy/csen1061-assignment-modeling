@@ -152,8 +152,8 @@ findEvalMeasures <- function(data_stats, prediction_stats) {
   return(eval_measures)
 }
 
-getStats <- function(classifier, labels, num_folds) {
-  classifier_fold <- evaluate_Weka_classifier(classifier, numFolds = num_folds)
+getStats <- function(classifier, labels, num_folds, seed = NULL) {
+  classifier_fold <- evaluate_Weka_classifier(classifier, numFolds = num_folds, seed = seed)
   
   #print(classifier_fold)
   #print(summary(classifier_fold))
@@ -173,8 +173,41 @@ getStats <- function(classifier, labels, num_folds) {
     fn = confusionMatrix[pos, neg]
   )
   eval_measures <- findEvalMeasures(data_stats, prediction_stats)
-  eval_measures$mean_error <- classifier_fold$details["meanAbsoluteError"]
+  eval_measures$mean_error <- classifier_fold$details[["meanAbsoluteError"]]
   return(eval_measures)
+}
+
+getAverageStats <- function(stats) {
+  acc <- 0
+  err <- 0
+  rec <- 0
+  prec <- 0
+  f <- 0
+  mean_err <- 0
+  for(stat in stats) {
+    acc <- acc + stat[["accuracy"]]
+    err <- err + stat[["error"]]
+    rec <- rec + stat[["recall"]]
+    prec <- prec + stat[["precision"]]
+    f <- f + stat[["f_score"]]
+    mean_err <- mean_err + stat[["mean_error"]]
+  }
+  n <- length(stats)
+  acc <- acc / n
+  err <- err / n
+  rec <- rec / n
+  prec <- prec / n
+  f <- f / n
+  mean_err <- mean_err / n
+  average_stats <- list(
+    accuracy = acc,
+    error = err,
+    recall = rec,
+    precision = prec,
+    f_score = f,
+    mean_error = mean_err
+  )
+  return(average_stats)
 }
 ```
 
@@ -193,12 +226,18 @@ eval_measures
 Using 10-fold cross validation for C4.5 decision tree.
 
 ```{r}
-c45_tree_func <- function(input_data, num_folds) {
-  c45_tree_classifier <- J48(Class ~ ., data = input_data)
-  return(getStats(c45_tree_classifier, input_data$Class, num_folds))
+c45_tree_func <- function(input_data, num_folds, num_times) {
+  stats <- list()
+  seed <- 0
+  for(i in 1:num_times) {
+    seed <- i + 1
+    c45_tree_classifier <- J48(Class ~ ., data = input_data)
+    stats[[i]] <- getStats(c45_tree_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-c45_tree_eval_measures <- c45_tree_func(sonar, 10)
+c45_tree_eval_measures <- c45_tree_func(sonar, 10, 1)
 c45_tree_eval_measures
 ```
 
@@ -213,77 +252,113 @@ Using other classification algorithms with 10-fold cross validation.
 * Random Forest
 
 ```{r}
-random_forest_func <- function(input_data, num_folds) {
-  RandomForest <- make_Weka_classifier("weka/classifiers/trees/RandomForest")
-  random_forest_classifier <- RandomForest(Class ~ ., data = input_data)
-  return(getStats(random_forest_classifier, input_data$Class, num_folds))
+random_forest_func <- function(input_data, num_folds, num_times) {
+  stats <- list()
+  seed <- 0
+  for(i in 1:num_times) {
+    seed <- i + 1
+    RandomForest <- make_Weka_classifier("weka/classifiers/trees/RandomForest")
+    random_forest_classifier <- RandomForest(Class ~ ., data = input_data)
+    stats[[i]] <- getStats(random_forest_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-rf_eval_measures <- random_forest_func(sonar, 10)
+rf_eval_measures <- random_forest_func(sonar, 10, 1)
 rf_eval_measures
 ```
 
 * Support Vector Machines
 
 ```{r}
-svm_func <- function(input_data, num_folds) {
-  svm_classifier <- SMO(Class ~ ., data = input_data)
-  return(getStats(svm_classifier, input_data$Class, num_folds))
+svm_func <- function(input_data, num_folds, num_times) {
+  stats <- list()
+  seed <- 0
+  for(i in 1:num_times) {
+    seed <- i + 1
+    svm_classifier <- SMO(Class ~ ., data = input_data)
+    stats[[i]] <- getStats(svm_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-svm_eval_measures <- svm_func(sonar, 10)
+svm_eval_measures <- svm_func(sonar, 10, 1)
 svm_eval_measures
 ```
 
 * Naive Bayes
 
 ```{r}
-naive_bayes_func <- function(input_data, num_folds) {
-  NaiveBayes <- make_Weka_classifier("weka/classifiers/bayes/NaiveBayes")
-  naive_bayes_classifier <- NaiveBayes(Class ~ ., data = input_data)
-  return(getStats(naive_bayes_classifier, input_data$Class, num_folds))
+naive_bayes_func <- function(input_data, num_folds, num_times) {
+  stats <- list()
+  seed <- 0
+  for(i in 1:num_times) {
+    seed <- i + 1
+    NaiveBayes <- make_Weka_classifier("weka/classifiers/bayes/NaiveBayes")
+    naive_bayes_classifier <- NaiveBayes(Class ~ ., data = input_data)
+    stats[[i]] <- getStats(naive_bayes_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-nb_eval_measures <- naive_bayes_func(sonar, 10)
+nb_eval_measures <- naive_bayes_func(sonar, 10, 1)
 nb_eval_measures
 ```
 
-* Neural Networks
+* Neural Networks (with 10 epochs)
 
 ```{r}
-neural_networks_func <- function(input_data, num_folds) {
-  NeuralNetworks <- make_Weka_classifier("weka/classifiers/functions/MultilayerPerceptron")
-  neural_networks_classifier <- NeuralNetworks(Class ~ ., data = input_data, control = Weka_control(N = 10))
-  return(getStats(neural_networks_classifier, input_data$Class, num_folds))
+neural_networks_func <- function(input_data, num_folds, num_times) {
+  stats <- list()
+  seed <- 0
+  for(i in 1:num_times) {
+    seed <- i + 1
+    NeuralNetworks <- make_Weka_classifier("weka/classifiers/functions/MultilayerPerceptron")
+    neural_networks_classifier <- NeuralNetworks(Class ~ ., data = input_data, control = Weka_control(N = 10))
+    stats[[i]] <- getStats(neural_networks_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-nn_eval_measures <- neural_networks_func(sonar, 10)
+nn_eval_measures <- neural_networks_func(sonar, 10, 1)
 nn_eval_measures
 ```
 
 * Bagging
 
 ```{r}
-bagging_func <- function(input_data, num_folds) {
-  Bagging <- make_Weka_classifier("weka/classifiers/meta/Bagging")
-  bagging_classifier <- Bagging(Class ~ ., data = input_data, control = Weka_control(W = J48))
-  return(getStats(bagging_classifier, input_data$Class, num_folds))
+bagging_func <- function(input_data, num_folds, num_times) {
+  stats <- list()
+  seed <- 0
+  for(i in 1:num_times) {
+    seed <- i + 1
+    Bagging <- make_Weka_classifier("weka/classifiers/meta/Bagging")
+    bagging_classifier <- Bagging(Class ~ ., data = input_data, control = Weka_control(W = J48))
+    stats[[i]] <- getStats(bagging_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-bagging_eval_measures <- bagging_func(sonar, 10)
+bagging_eval_measures <- bagging_func(sonar, 10, 1)
 bagging_eval_measures
 ```
 
 * Boosting
 
 ```{r}
-boosting_func <- function(input_data, num_folds) {
-  Boosting <- make_Weka_classifier("weka/classifiers/meta/AdaBoostM1")
-  boosting_classifier <- Boosting(Class ~ ., data = input_data, control = Weka_control(W = J48))
-  return(getStats(boosting_classifier, input_data$Class, num_folds))
+boosting_func <- function(input_data, num_folds, num_times) {
+  stats <- list()
+  seed <- 0
+  for(i in 1:num_times) {
+    seed <- i + 1
+    Boosting <- make_Weka_classifier("weka/classifiers/meta/AdaBoostM1")
+    boosting_classifier <- Boosting(Class ~ ., data = input_data, control = Weka_control(W = J48))
+    stats[[i]] <- getStats(boosting_classifier, input_data$Class, num_folds, seed)
+  }
+  return(getAverageStats(stats))
 }
 
-boosting_eval_measures <- boosting_func(sonar, 10)
+boosting_eval_measures <- boosting_func(sonar, 10, 1)
 boosting_eval_measures
 ```
 
@@ -334,40 +409,48 @@ names(spectf)[names(spectf) == 'V1'] <- 'Class'
 spectf$Class <- as.factor(spectf$Class)
 ```
 
-Testing multiple algorithms on multiple datasets.
+Testing multiple algorithms on multiple datasets using 10 times 10-fold validation.
 
 ```{r}
-hepatitis_c45_tree_eval_measures <- c45_tree_func(hepatitis, 10)
-hepatitis_rf_eval_measures <- random_forest_func(hepatitis, 10)
-hepatitis_svm_eval_measures <- svm_func(hepatitis, 10)
-hepatitis_nb_eval_measures <- naive_bayes_func(hepatitis, 10)
-hepatitis_nn_eval_measures <- neural_networks_func(hepatitis, 10)
-hepatitis_bagging_eval_measures <- bagging_func(hepatitis, 10)
-hepatitis_boosting_eval_measures <- boosting_func(hepatitis, 10)
+sonar_c45_tree_eval_measures <- c45_tree_func(sonar, 10, 10)
+sonar_rf_eval_measures <- random_forest_func(sonar, 10, 10)
+sonar_svm_eval_measures <- svm_func(sonar, 10, 10)
+sonar_nb_eval_measures <- naive_bayes_func(sonar, 10, 10)
+sonar_nn_eval_measures <- neural_networks_func(sonar, 10, 10)
+sonar_bagging_eval_measures <- bagging_func(sonar, 10, 10)
+sonar_boosting_eval_measures <- boosting_func(sonar, 10, 10)
 
-pima_c45_tree_eval_measures <- c45_tree_func(pima, 10)
-pima_rf_eval_measures <- random_forest_func(pima, 10)
-pima_svm_eval_measures <- svm_func(pima, 10)
-pima_nb_eval_measures <- naive_bayes_func(pima, 10)
-pima_nn_eval_measures <- neural_networks_func(pima, 10)
-pima_bagging_eval_measures <- bagging_func(pima, 10)
-pima_boosting_eval_measures <- boosting_func(pima, 10)
+hepatitis_c45_tree_eval_measures <- c45_tree_func(hepatitis, 10, 10)
+hepatitis_rf_eval_measures <- random_forest_func(hepatitis, 10, 10)
+hepatitis_svm_eval_measures <- svm_func(hepatitis, 10, 10)
+hepatitis_nb_eval_measures <- naive_bayes_func(hepatitis, 10, 10)
+hepatitis_nn_eval_measures <- neural_networks_func(hepatitis, 10, 10)
+hepatitis_bagging_eval_measures <- bagging_func(hepatitis, 10, 10)
+hepatitis_boosting_eval_measures <- boosting_func(hepatitis, 10, 10)
 
-spect_c45_tree_eval_measures <- c45_tree_func(spect, 10)
-spect_rf_eval_measures <- random_forest_func(spect, 10)
-spect_svm_eval_measures <- svm_func(spect, 10)
-spect_nb_eval_measures <- naive_bayes_func(spect, 10)
-spect_nn_eval_measures <- neural_networks_func(spect, 10)
-spect_bagging_eval_measures <- bagging_func(spect, 10)
-spect_boosting_eval_measures <- boosting_func(spect, 10)
+pima_c45_tree_eval_measures <- c45_tree_func(pima, 10, 10)
+pima_rf_eval_measures <- random_forest_func(pima, 10, 10)
+pima_svm_eval_measures <- svm_func(pima, 10, 10)
+pima_nb_eval_measures <- naive_bayes_func(pima, 10, 10)
+pima_nn_eval_measures <- neural_networks_func(pima, 10, 10)
+pima_bagging_eval_measures <- bagging_func(pima, 10, 10)
+pima_boosting_eval_measures <- boosting_func(pima, 10, 10)
 
-spectf_c45_tree_eval_measures <- c45_tree_func(spectf, 10)
-spectf_rf_eval_measures <- random_forest_func(spectf, 10)
-spectf_svm_eval_measures <- svm_func(spectf, 10)
-spectf_nb_eval_measures <- naive_bayes_func(spectf, 10)
-spectf_nn_eval_measures <- neural_networks_func(spectf, 10)
-spectf_bagging_eval_measures <- bagging_func(spectf, 10)
-spectf_boosting_eval_measures <- boosting_func(spectf, 10)
+spect_c45_tree_eval_measures <- c45_tree_func(spect, 10, 10)
+spect_rf_eval_measures <- random_forest_func(spect, 10, 10)
+spect_svm_eval_measures <- svm_func(spect, 10, 10)
+spect_nb_eval_measures <- naive_bayes_func(spect, 10, 10)
+spect_nn_eval_measures <- neural_networks_func(spect, 10, 10)
+spect_bagging_eval_measures <- bagging_func(spect, 10, 10)
+spect_boosting_eval_measures <- boosting_func(spect, 10, 10)
+
+spectf_c45_tree_eval_measures <- c45_tree_func(spectf, 10, 10)
+spectf_rf_eval_measures <- random_forest_func(spectf, 10, 10)
+spectf_svm_eval_measures <- svm_func(spectf, 10, 10)
+spectf_nb_eval_measures <- naive_bayes_func(spectf, 10, 10)
+spectf_nn_eval_measures <- neural_networks_func(spectf, 10, 10)
+spectf_bagging_eval_measures <- bagging_func(spectf, 10, 10)
+spectf_boosting_eval_measures <- boosting_func(spectf, 10, 10)
 ```
 
 Presenting the results in a table.
@@ -376,19 +459,19 @@ Presenting the results in a table.
 getMeasure <- function(measure_name) {
   Measure <- c("Sonar", "Hepatitis", "Pima-Indian Diabetes", "SPECT", "SPECTF")
   
-  C4.5_Decision_Tree <- c(c45_tree_eval_measures[[measure_name]], hepatitis_c45_tree_eval_measures[[measure_name]], pima_c45_tree_eval_measures[[measure_name]], spect_c45_tree_eval_measures[[measure_name]], spectf_c45_tree_eval_measures[[measure_name]])
+  C4.5_Decision_Tree <- c(sonar_c45_tree_eval_measures[[measure_name]], hepatitis_c45_tree_eval_measures[[measure_name]], pima_c45_tree_eval_measures[[measure_name]], spect_c45_tree_eval_measures[[measure_name]], spectf_c45_tree_eval_measures[[measure_name]])
 
-  Random_Forest <- c(rf_eval_measures[[measure_name]], hepatitis_rf_eval_measures[[measure_name]], pima_rf_eval_measures[[measure_name]], spect_rf_eval_measures[[measure_name]], spectf_rf_eval_measures[[measure_name]])
+  Random_Forest <- c(sonar_rf_eval_measures[[measure_name]], hepatitis_rf_eval_measures[[measure_name]], pima_rf_eval_measures[[measure_name]], spect_rf_eval_measures[[measure_name]], spectf_rf_eval_measures[[measure_name]])
   
-  SVM <- c(svm_eval_measures[[measure_name]], hepatitis_svm_eval_measures[[measure_name]], pima_svm_eval_measures[[measure_name]], spect_svm_eval_measures[[measure_name]], spectf_svm_eval_measures[[measure_name]])
+  SVM <- c(sonar_svm_eval_measures[[measure_name]], hepatitis_svm_eval_measures[[measure_name]], pima_svm_eval_measures[[measure_name]], spect_svm_eval_measures[[measure_name]], spectf_svm_eval_measures[[measure_name]])
   
-  Naive_Bayes <- c(nb_eval_measures[[measure_name]], hepatitis_nb_eval_measures[[measure_name]], pima_nb_eval_measures[[measure_name]], spect_nb_eval_measures[[measure_name]], spectf_nb_eval_measures[[measure_name]])
+  Naive_Bayes <- c(sonar_nb_eval_measures[[measure_name]], hepatitis_nb_eval_measures[[measure_name]], pima_nb_eval_measures[[measure_name]], spect_nb_eval_measures[[measure_name]], spectf_nb_eval_measures[[measure_name]])
   
-  Neural_Networks <- c(nn_eval_measures[[measure_name]], hepatitis_nn_eval_measures[[measure_name]], pima_nn_eval_measures[[measure_name]], spect_nn_eval_measures[[measure_name]], spectf_nn_eval_measures[[measure_name]])
+  Neural_Networks <- c(sonar_nn_eval_measures[[measure_name]], hepatitis_nn_eval_measures[[measure_name]], pima_nn_eval_measures[[measure_name]], spect_nn_eval_measures[[measure_name]], spectf_nn_eval_measures[[measure_name]])
   
-  Bagging <- c(bagging_eval_measures[[measure_name]], hepatitis_bagging_eval_measures[[measure_name]], pima_bagging_eval_measures[[measure_name]], spect_bagging_eval_measures[[measure_name]], spectf_bagging_eval_measures[[measure_name]])
+  Bagging <- c(sonar_bagging_eval_measures[[measure_name]], hepatitis_bagging_eval_measures[[measure_name]], pima_bagging_eval_measures[[measure_name]], spect_bagging_eval_measures[[measure_name]], spectf_bagging_eval_measures[[measure_name]])
   
-  Boosting <- c(boosting_eval_measures[[measure_name]], hepatitis_boosting_eval_measures[[measure_name]], pima_boosting_eval_measures[[measure_name]], spect_boosting_eval_measures[[measure_name]], spectf_boosting_eval_measures[[measure_name]])
+  Boosting <- c(sonar_boosting_eval_measures[[measure_name]], hepatitis_boosting_eval_measures[[measure_name]], pima_boosting_eval_measures[[measure_name]], spect_boosting_eval_measures[[measure_name]], spectf_boosting_eval_measures[[measure_name]])
   
   measure <- data.frame(Measure, C4.5_Decision_Tree, Random_Forest, SVM, Naive_Bayes, Neural_Networks, Bagging, Boosting)
   return(measure)
